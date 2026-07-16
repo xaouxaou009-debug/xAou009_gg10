@@ -1,0 +1,14 @@
+{
+  "Name": "Xaou009_DailyShop",
+  "DisplayName": "Xaou 009 Daily Shop",
+  "GameVersion": 1.268,
+  "Version": 0.4,
+  "Desc": "ร้านค้าซื้อขายรายวันและกระเป๋ากลางแบบ RPG โดย Xaou 009",
+  "Author": "Xaou 009",
+  "UIPackage": "UI/XaouShop",
+  "ID": "970200009",
+  "Tags": ["Shop", "Item", "Mobile", "Usability"],
+  "IncreasedDesc": "",
+  "IsInsideCreat": true,
+  "Previews": []
+}
