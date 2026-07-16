@@ -1,6 +1,6 @@
 -- Xaou 009 update notification. This checker never downloads or replaces mod files.
 
-local LOCAL_VERSION = "0.4"
+local LOCAL_VERSION = "0.5"
 local MANIFEST_URLS = {
     "https://raw.githubusercontent.com/xaouxaou009-debug/Mod/main/Xaou_UpdateManifest.txt",
     "https://raw.githubusercontent.com/xaouxaou009-debug/Mod/master/Xaou_UpdateManifest.txt"
