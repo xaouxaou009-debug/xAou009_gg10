@@ -36,7 +36,7 @@ function XaouDailyShop:OnEnter()
     if event ~= nil then
         event:RegisterEvent(g_emEvent.SelectNpc, function(evt, npc, objs)
             if npc ~= nil and npc.ThingType == g_emThingType.Npc then
-                pcall(function() npc:RemoveBtnData("ชื้อ/ขาย") end)
+                pcall(function() npc:RemoveBtnData("XaouShop009") end)
                 npc:AddBtnData(
                     "ชื้อ/ขาย",
                     "res/Sprs/ui/icon_hand",
@@ -44,7 +44,7 @@ function XaouDailyShop:OnEnter()
                     "เปิดร้านค้ารายวันของ Xaou 009",
                     nil
                 )
-                pcall(function() npc:RemoveBtnData("กระเป๋า") end)
+                pcall(function() npc:RemoveBtnData("XaouBackpack009") end)
                 npc:AddBtnData(
                     "กระเป๋า",
                     "res/Sprs/ui/icon_hand",
