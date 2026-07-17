@@ -1,6 +1,7 @@
 -- Xaou 009 Daily Shop core. No dependency on another mod.
 
 XaouShop_State = XaouShop_State or {day=-1, items={}, backpack={}}
+local SHOP_POOL_VERSION = 2
 
 local PRICE_BY_RATE = {
     [1]=1, [2]=2, [3]=3, [4]=4, [5]=5, [6]=10,
@@ -145,6 +146,10 @@ local function drop_item(id, amount, target)
     return true
 end
 
+function XaouShop_GrantItem(id, amount, target)
+    return drop_item(id, amount, target)
+end
+
 local function remove_stack(item, amount)
     local before = stack_count(item)
     amount = math.min(before, math.max(0, math.floor(amount or 0)))
@@ -287,34 +292,78 @@ end
 
 function XaouShop_Generate(day)
     day = math.floor(tonumber(day) or XaouShop_GetDay())
-    local available = {}
-    for _, entry in ipairs(XaouShop_ItemPool or {}) do
-        if entry.id ~= "Item_LingStone" then
-            local def = XaouShop_GetDef(entry.id)
-            if def ~= nil then available[#available + 1] = {id=tostring(entry.id), def=def, price=entry.price} end
+    local seed = math.max(1, (day + 1) * 9009 + 200009)
+    local groups, categories, seen = {}, {}, {}
+
+    local function add_available(entry)
+        if type(entry) ~= "table" then return end
+        local id = entry.id or entry.ID or entry.Name or entry.name
+        if id == nil then return end
+        id = tostring(id)
+        if id == "" or id == "Item_LingStone" or seen[id] then return end
+        local def = XaouShop_GetDef(id)
+        if def == nil then return end
+        local category = tostring(entry.cat or entry.category or "อื่น")
+        if category == "vkski" then category = "อาหาร" end
+        if groups[category] == nil then
+            groups[category] = {}
+            categories[#categories + 1] = category
+        end
+        groups[category][#groups[category] + 1] = {
+            id=id, def=def, price=entry.price, category=category,
+        }
+        seen[id] = true
+    end
+
+    for _, pack in ipairs(Xaou_ItemPacks or {}) do
+        local entries = type(pack) == "table" and (pack.items or pack) or nil
+        if type(entries) == "table" then
+            for _, entry in ipairs(entries) do add_available(entry) end
         end
     end
-    local seed = math.max(1, (day + 1) * 9009 + 200009)
+    for _, entry in ipairs(XaouShop_ItemPool or {}) do add_available(entry) end
+
     local generated = {}
-    while #generated < 10 and #available > 0 do
-        seed = next_random(seed)
-        local index = (seed % #available) + 1
-        local selected = table.remove(available, index)
+    local function add_generated(selected)
         generated[#generated + 1] = {
             id=selected.id,
             stock=10,
             price=math.max(1, math.floor(tonumber(selected.price) or rate_price(selected.def))),
+            category=selected.category,
         }
     end
+
+    -- Give every available category one daily slot before filling the rest.
+    local category_order = {}
+    for _, category in ipairs(categories) do category_order[#category_order + 1] = category end
+    while #generated < 10 and #category_order > 0 do
+        seed = next_random(seed)
+        local category = table.remove(category_order, (seed % #category_order) + 1)
+        local list = groups[category]
+        if list ~= nil and #list > 0 then
+            seed = next_random(seed)
+            add_generated(table.remove(list, (seed % #list) + 1))
+        end
+    end
+
+    local available = {}
+    for _, list in pairs(groups) do
+        for _, entry in ipairs(list) do available[#available + 1] = entry end
+    end
+    while #generated < 10 and #available > 0 do
+        seed = next_random(seed)
+        add_generated(table.remove(available, (seed % #available) + 1))
+    end
     local backpack = XaouShop_State and XaouShop_State.backpack or {}
-    XaouShop_State = {day=day, items=generated, backpack=backpack}
+    local login = XaouShop_State and XaouShop_State.login or nil
+    XaouShop_State = {day=day, items=generated, backpack=backpack, login=login, poolVersion=SHOP_POOL_VERSION}
     if XaouShop_RefreshWindow then pcall(XaouShop_RefreshWindow) end
     return #generated
 end
 
 function XaouShop_EnsureDaily()
     local day = XaouShop_GetDay()
-    if XaouShop_State == nil or tonumber(XaouShop_State.day) ~= day or type(XaouShop_State.items) ~= "table" or #XaouShop_State.items == 0 then
+    if XaouShop_State == nil or tonumber(XaouShop_State.day) ~= day or tonumber(XaouShop_State.poolVersion) ~= SHOP_POOL_VERSION or type(XaouShop_State.items) ~= "table" or #XaouShop_State.items == 0 then
         XaouShop_Generate(day)
         return true
     end
@@ -396,7 +445,7 @@ function XaouShop_BackpackWithdraw(id, quantity, target)
 end
 
 function XaouShop_ExportState()
-    local result = {day=tonumber(XaouShop_State.day) or -1, items={}, backpack={}}
+    local result = {day=tonumber(XaouShop_State.day) or -1, items={}, backpack={}, login=XaouShop_State.login, poolVersion=SHOP_POOL_VERSION}
     for _, row in ipairs(XaouShop_State.items or {}) do
         result.items[#result.items + 1] = {id=tostring(row.id), stock=tonumber(row.stock) or 0, price=tonumber(row.price) or 1}
     end
@@ -411,7 +460,7 @@ function XaouShop_ImportState(data)
         XaouShop_State = {day=-1, items={}, backpack={}}
         return false
     end
-    XaouShop_State = {day=tonumber(data.day) or -1, items={}, backpack={}}
+    XaouShop_State = {day=tonumber(data.day) or -1, items={}, backpack={}, login=type(data.login) == "table" and data.login or nil, poolVersion=tonumber(data.poolVersion)}
     for _, row in ipairs(data.items) do
         if row.id ~= nil and XaouShop_GetDef(row.id) ~= nil then
             XaouShop_State.items[#XaouShop_State.items + 1] = {

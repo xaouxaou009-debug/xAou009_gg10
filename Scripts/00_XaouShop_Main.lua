@@ -1,9 +1,12 @@
 -- Xaou 009 Daily Shop standalone entry point.
 
 pcall(require, 'Scripts/10_XaouShop_ItemPool.lua')
+pcall(require, 'Scripts/11_XaouShop_AllItemPacks.lua')
 pcall(require, 'Scripts/20_XaouShop_Core.lua')
 pcall(require, 'Scripts/30_XaouShop_Window.lua')
 pcall(require, 'Scripts/40_XaouShop_BackpackWindow.lua')
+pcall(require, 'Scripts/50_XaouShop_UpdateChecker.lua')
+pcall(require, 'Scripts/60_XaouShop_DailyLogin.lua')
 
 local XaouDailyShop = GameMain:NewMod("Xaou009DailyShop")
 
@@ -32,11 +35,12 @@ function XaouDailyShop:OpenBackpack(npc)
 end
 
 function XaouDailyShop:OnEnter()
+    self._loginAutoDay = nil
     local event = GameMain:GetMod("_Event")
     if event ~= nil then
         event:RegisterEvent(g_emEvent.SelectNpc, function(evt, npc, objs)
             if npc ~= nil and npc.ThingType == g_emThingType.Npc then
-                pcall(function() npc:RemoveBtnData("ชื้อ/ขาย") end)
+                pcall(function() npc:RemoveBtnData(""ชื้อ/ขาย") end)
                 npc:AddBtnData(
                     "ชื้อ/ขาย",
                     "res/Sprs/ui/icon_hand",
@@ -56,6 +60,7 @@ function XaouDailyShop:OnEnter()
         end, "Xaou009DailyShop_SelectNpc")
     end
     if XaouShop_EnsureDaily then pcall(XaouShop_EnsureDaily) end
+    if XaouUpdateChecker_Start then pcall(XaouUpdateChecker_Start) end
 end
 
 function XaouDailyShop:OnStep(dt)
@@ -63,6 +68,14 @@ function XaouDailyShop:OnStep(dt)
     if self._shopTimer < 1 then return end
     self._shopTimer = 0
     if XaouShop_EnsureDaily then pcall(XaouShop_EnsureDaily) end
+    local loginDay = XaouDailyLogin_GetToday and XaouDailyLogin_GetToday() or XaouShop_GetDay()
+    if self._loginAutoDay ~= loginDay then
+        self._loginAutoDay = loginDay
+        if XaouDailyLogin_ShouldAutoOpen and XaouDailyLogin_ShouldAutoOpen() and XaouDailyLogin_Open then
+            pcall(function() XaouDailyLogin_Open(nil) end)
+        end
+    end
+    if XaouUpdateChecker_Step then pcall(XaouUpdateChecker_Step) end
 end
 
 function XaouDailyShop:OnSave()
@@ -83,6 +96,8 @@ function XaouDailyShop:OnLeave()
     if event ~= nil then pcall(function() event:UnRegisterEvent(g_emEvent.SelectNpc, "Xaou009DailyShop_SelectNpc") end) end
     if XaouShop_CloseWindow then pcall(XaouShop_CloseWindow) end
     if XaouBackpack_CloseWindow then pcall(XaouBackpack_CloseWindow) end
+    if XaouDailyLogin_Close then pcall(XaouDailyLogin_Close) end
+    if XaouUpdateChecker_Stop then pcall(XaouUpdateChecker_Stop) end
 end
 
 function XaouDailyShop:NeedSyncData() return false end
