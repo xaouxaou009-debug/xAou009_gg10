@@ -40,7 +40,7 @@ function XaouDailyShop:OnEnter()
     if event ~= nil then
         event:RegisterEvent(g_emEvent.SelectNpc, function(evt, npc, objs)
             if npc ~= nil and npc.ThingType == g_emThingType.Npc then
-                pcall(function() npc:RemoveBtnData(""ชื้อ/ขาย") end)
+                pcall(function() npc:RemoveBtnData("ชื้อ/ขาย") end)
                 npc:AddBtnData(
                     "ชื้อ/ขาย",
                     "res/Sprs/ui/icon_hand",
