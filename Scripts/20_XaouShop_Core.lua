@@ -1,6 +1,6 @@
 -- Xaou 009 Daily Shop core. No dependency on another mod.
 
-XaouShop_State = XaouShop_State or {day=-1, items={}, backpack={}}
+XaouShop_State = XaouShop_State or {day=-1, items={}, backpack={}, specialBought={}, specialMonth=-1}
 local SHOP_POOL_VERSION = 2
 
 local PRICE_BY_RATE = {
@@ -356,7 +356,9 @@ function XaouShop_Generate(day)
     end
     local backpack = XaouShop_State and XaouShop_State.backpack or {}
     local login = XaouShop_State and XaouShop_State.login or nil
-    XaouShop_State = {day=day, items=generated, backpack=backpack, login=login, poolVersion=SHOP_POOL_VERSION}
+    local specialBought = XaouShop_State and XaouShop_State.specialBought or {}
+    local specialMonth = XaouShop_State and XaouShop_State.specialMonth or -1
+    XaouShop_State = {day=day, items=generated, backpack=backpack, login=login, specialBought=specialBought, specialMonth=specialMonth, poolVersion=SHOP_POOL_VERSION}
     if XaouShop_RefreshWindow then pcall(XaouShop_RefreshWindow) end
     return #generated
 end
@@ -389,6 +391,72 @@ function XaouShop_Buy(index, quantity, target)
     end
     row.stock = math.max(0, (tonumber(row.stock) or 0) - quantity)
     return true, {id=row.id, quantity=quantity, total=total, stock=row.stock}
+end
+
+local function ensure_special_bought()
+    XaouShop_State = XaouShop_State or {day=-1, items={}, backpack={}}
+    local month = math.floor(math.max(0, XaouShop_GetDay()) / 28)
+    if tonumber(XaouShop_State.specialMonth) ~= month then
+        XaouShop_State.specialMonth = month
+        XaouShop_State.specialBought = {}
+    end
+    if type(XaouShop_State.specialBought) ~= "table" then XaouShop_State.specialBought = {} end
+    return XaouShop_State.specialBought
+end
+
+function XaouShop_GetSpecialMonth()
+    ensure_special_bought()
+    return tonumber(XaouShop_State.specialMonth) or 0
+end
+
+function XaouShop_GetSpecialRows(category)
+    category = tostring(category or "all")
+    local bought = ensure_special_bought()
+    local rows = {}
+    for _, entry in ipairs(XaouShop_SpecialItems or {}) do
+        local id = entry.id and tostring(entry.id) or ""
+        local itemCategory = tostring(entry.category or "other")
+        local limit = math.max(1, math.floor(tonumber(entry.limit) or 1))
+        if id ~= "" and XaouShop_GetDef(id) ~= nil and (category == "all" or category == itemCategory) then
+            local used = math.max(0, math.floor(tonumber(bought[id]) or 0))
+            rows[#rows + 1] = {
+                id=id,
+                category=itemCategory,
+                price=math.max(1, math.floor(tonumber(entry.price) or 1)),
+                limit=limit,
+                bought=used,
+                stock=math.max(0, limit - used),
+            }
+        end
+    end
+    return rows
+end
+
+function XaouShop_BuySpecial(id, quantity, target)
+    id = id and tostring(id) or ""
+    quantity = math.max(1, math.floor(tonumber(quantity) or 1))
+    local selected = nil
+    for _, entry in ipairs(XaouShop_SpecialItems or {}) do
+        if tostring(entry.id or "") == id then selected = entry; break end
+    end
+    if selected == nil or XaouShop_GetDef(id) == nil then return false, "ITEM_NOT_FOUND" end
+
+    local bought = ensure_special_bought()
+    local limit = math.max(1, math.floor(tonumber(selected.limit) or 1))
+    local used = math.max(0, math.floor(tonumber(bought[id]) or 0))
+    if quantity > math.max(0, limit - used) then return false, "OUT_OF_STOCK" end
+
+    local price = math.max(1, math.floor(tonumber(selected.price) or 1))
+    local total = price * quantity
+    local paid, payError = deduct_currency(total, target)
+    if not paid then return false, payError end
+    local spawned, spawnError = drop_item(id, quantity, target)
+    if not spawned then
+        drop_item("Item_LingStone", total, target)
+        return false, "SPAWN_FAILED: " .. tostring(spawnError)
+    end
+    bought[id] = used + quantity
+    return true, {id=id, quantity=quantity, total=total, stock=limit - bought[id]}
 end
 
 function XaouShop_Sell(id, quantity, target)
@@ -445,22 +513,25 @@ function XaouShop_BackpackWithdraw(id, quantity, target)
 end
 
 function XaouShop_ExportState()
-    local result = {day=tonumber(XaouShop_State.day) or -1, items={}, backpack={}, login=XaouShop_State.login, poolVersion=SHOP_POOL_VERSION}
+    local result = {day=tonumber(XaouShop_State.day) or -1, items={}, backpack={}, specialBought={}, specialMonth=tonumber(XaouShop_State.specialMonth) or -1, login=XaouShop_State.login, poolVersion=SHOP_POOL_VERSION}
     for _, row in ipairs(XaouShop_State.items or {}) do
         result.items[#result.items + 1] = {id=tostring(row.id), stock=tonumber(row.stock) or 0, price=tonumber(row.price) or 1}
     end
     for id, amount in pairs(ensure_backpack()) do
         if tonumber(amount) and tonumber(amount) > 0 then result.backpack[tostring(id)] = math.floor(tonumber(amount)) end
     end
+    for id, amount in pairs(ensure_special_bought()) do
+        if tonumber(amount) and tonumber(amount) > 0 then result.specialBought[tostring(id)] = math.floor(tonumber(amount)) end
+    end
     return result
 end
 
 function XaouShop_ImportState(data)
     if type(data) ~= "table" or type(data.items) ~= "table" then
-        XaouShop_State = {day=-1, items={}, backpack={}}
+        XaouShop_State = {day=-1, items={}, backpack={}, specialBought={}, specialMonth=-1}
         return false
     end
-    XaouShop_State = {day=tonumber(data.day) or -1, items={}, backpack={}, login=type(data.login) == "table" and data.login or nil, poolVersion=tonumber(data.poolVersion)}
+    XaouShop_State = {day=tonumber(data.day) or -1, items={}, backpack={}, specialBought={}, specialMonth=tonumber(data.specialMonth) or -1, login=type(data.login) == "table" and data.login or nil, poolVersion=tonumber(data.poolVersion)}
     for _, row in ipairs(data.items) do
         if row.id ~= nil and XaouShop_GetDef(row.id) ~= nil then
             XaouShop_State.items[#XaouShop_State.items + 1] = {
@@ -472,6 +543,13 @@ function XaouShop_ImportState(data)
         for id, amount in pairs(data.backpack) do
             if XaouShop_GetDef(id) ~= nil and tonumber(amount) and tonumber(amount) > 0 then
                 XaouShop_State.backpack[tostring(id)] = math.floor(tonumber(amount))
+            end
+        end
+    end
+    if type(data.specialBought) == "table" then
+        for id, amount in pairs(data.specialBought) do
+            if tonumber(amount) and tonumber(amount) > 0 then
+                XaouShop_State.specialBought[tostring(id)] = math.floor(tonumber(amount))
             end
         end
     end

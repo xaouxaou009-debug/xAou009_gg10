@@ -110,6 +110,7 @@ local function refresh(view)
     set_text(child(view, "btnModeBuy"), XSHOP_Mode == "buy" and "▶ ซื้อสินค้า" or "ซื้อสินค้า")
     set_text(child(view, "btnModeSell"), XSHOP_Mode == "sell" and "▶ ขายของ" or "ขายของ")
     set_text(child(view, "btnDailyLogin"), "เช็กอิน 7 วัน")
+    set_text(child(view, "btnSpecial"), "ของพิเศษ")
     set_text(child(view, "btnQty1"), "1")
     set_text(child(view, "btnQty5"), "5")
     set_text(child(view, "btnQty10"), "10")
@@ -257,6 +258,10 @@ function XaouShop_OpenWindow(target)
     local dailyLogin = child(view, "btnDailyLogin")
     if dailyLogin ~= nil then dailyLogin.onClick:Add(function()
         if XaouDailyLogin_Open then XaouDailyLogin_Open(XSHOP_Target) end
+    end) end
+    local special = child(view, "btnSpecial")
+    if special ~= nil then special.onClick:Add(function()
+        if XaouSpecialShop_Open then XaouSpecialShop_Open(XSHOP_Target) end
     end) end
     local prevButton = child(view, "btnPrev")
     if prevButton ~= nil then prevButton.onClick:Add(function()

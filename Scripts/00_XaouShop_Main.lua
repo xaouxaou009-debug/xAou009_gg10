@@ -2,8 +2,10 @@
 
 pcall(require, 'Scripts/10_XaouShop_ItemPool.lua')
 pcall(require, 'Scripts/11_XaouShop_AllItemPacks.lua')
+pcall(require, 'Scripts/12_XaouShop_SpecialItems.lua')
 pcall(require, 'Scripts/20_XaouShop_Core.lua')
 pcall(require, 'Scripts/30_XaouShop_Window.lua')
+pcall(require, 'Scripts/35_XaouShop_SpecialWindow.lua')
 pcall(require, 'Scripts/40_XaouShop_BackpackWindow.lua')
 pcall(require, 'Scripts/50_XaouShop_UpdateChecker.lua')
 pcall(require, 'Scripts/60_XaouShop_DailyLogin.lua')
@@ -95,6 +97,7 @@ function XaouDailyShop:OnLeave()
     local event = GameMain:GetMod("_Event", true)
     if event ~= nil then pcall(function() event:UnRegisterEvent(g_emEvent.SelectNpc, "Xaou009DailyShop_SelectNpc") end) end
     if XaouShop_CloseWindow then pcall(XaouShop_CloseWindow) end
+    if XaouSpecialShop_Close then pcall(XaouSpecialShop_Close) end
     if XaouBackpack_CloseWindow then pcall(XaouBackpack_CloseWindow) end
     if XaouDailyLogin_Close then pcall(XaouDailyLogin_Close) end
     if XaouUpdateChecker_Stop then pcall(XaouUpdateChecker_Stop) end

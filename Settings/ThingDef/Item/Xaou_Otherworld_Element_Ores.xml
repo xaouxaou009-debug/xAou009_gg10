@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ThingDefs><List>
+  <ThingDef Type="Item" Name="Item_Xaou_OtherworldOre_Wood" Parent="FengShuiItemBase">
+    <ThingName>แท่งแร่ต่างโลกแห่งพฤกษา</ThingName>
+    <Desc>แท่งแร่ลึกลับจากโลกอื่น ภายในมีพลังชีวิตหมุนเวียนราวกับผืนป่าที่ไม่มีวันโรยรา ช่วยรวบรวมพลังวิญญาณสำหรับการบ่มเพาะ</Desc>
+    <TexPath>res\Sprs\object\object_benyuanmu01</TexPath>
+    <TexScale>0.65</TexScale>
+    <Rate>9</Rate>
+    <ElementKind>Mu</ElementKind>
+    <Item Lable="Other"><NotRandom>1</NotRandom><PhysicalLables><li>Heavy2</li><li>Hard2</li></PhysicalLables></Item>
+    <Ling><AddionLing>200</AddionLing><AddionRadius>3</AddionRadius><AddionFailing>1</AddionFailing><AddionFailRadius>1</AddionFailRadius><Attenuation>0.03</Attenuation><Absorption>0.8</Absorption><Accommodate>200</Accommodate></Ling>
+    <Element><Kind>Mu</Kind><Value>12</Value><Radius>3</Radius><Failing>0.8</Failing><FailRadius>1</FailRadius></Element>
+  </ThingDef>
+
+  <ThingDef Type="Item" Name="Item_Xaou_OtherworldOre_Fire" Parent="FengShuiItemBase">
+    <ThingName>แท่งแร่ต่างโลกแห่งเพลิง</ThingName>
+    <Desc>แท่งแร่ลึกลับจากโลกอื่น รอยแตกร้าวภายในส่องแสงดุจเปลวเพลิง ช่วยกระตุ้นและรวบรวมพลังวิญญาณสำหรับการบ่มเพาะ</Desc>
+    <TexPath>res\Sprs\object\object_huojingingot</TexPath>
+    <TexScale>0.65</TexScale>
+    <Rate>9</Rate>
+    <ElementKind>Huo</ElementKind>
+    <Item Lable="Other"><NotRandom>1</NotRandom><PhysicalLables><li>Heavy2</li><li>Hard2</li></PhysicalLables></Item>
+    <Ling><AddionLing>200</AddionLing><AddionRadius>3</AddionRadius><AddionFailing>1</AddionFailing><AddionFailRadius>1</AddionFailRadius><Attenuation>0.03</Attenuation><Absorption>0.8</Absorption><Accommodate>200</Accommodate></Ling>
+    <Element><Kind>Huo</Kind><Value>12</Value><Radius>3</Radius><Failing>0.8</Failing><FailRadius>1</FailRadius></Element>
+  </ThingDef>
+
+  <ThingDef Type="Item" Name="Item_Xaou_OtherworldOre_Earth" Parent="FengShuiItemBase">
+    <ThingName>แท่งแร่ต่างโลกแห่งปฐพี</ThingName>
+    <Desc>แท่งแร่ลึกลับจากโลกอื่น พลังภายในหนักแน่นดุจขุนเขา ช่วยรวมพลังวิญญาณที่กระจัดกระจายให้สงบนิ่งและมั่นคง</Desc>
+    <TexPath>res\Sprs\object\object_zaohuaYZ01</TexPath>
+    <TexScale>0.65</TexScale>
+    <Rate>9</Rate>
+    <ElementKind>Tu</ElementKind>
+    <Item Lable="Other"><NotRandom>1</NotRandom><PhysicalLables><li>Heavy2</li><li>Hard2</li></PhysicalLables></Item>
+    <Ling><AddionLing>200</AddionLing><AddionRadius>3</AddionRadius><AddionFailing>1</AddionFailing><AddionFailRadius>1</AddionFailRadius><Attenuation>0.03</Attenuation><Absorption>0.8</Absorption><Accommodate>200</Accommodate></Ling>
+    <Element><Kind>Tu</Kind><Value>12</Value><Radius>3</Radius><Failing>0.8</Failing><FailRadius>1</FailRadius></Element>
+  </ThingDef>
+
+  <ThingDef Type="Item" Name="Item_Xaou_OtherworldOre_Metal" Parent="FengShuiItemBase">
+    <ThingName>แท่งแร่ต่างโลกแห่งโลหะ</ThingName>
+    <Desc>แท่งแร่ลึกลับจากโลกอื่น ผิวสีเงินสะท้อนประกายคมบริสุทธิ์ เหมาะสำหรับจัดพื้นที่บ่มเพาะของผู้ฝึกวิชาธาตุโลหะ</Desc>
+    <TexPath>res\Sprs\object\object_stariron</TexPath>
+    <TexScale>0.65</TexScale>
+    <Rate>9</Rate>
+    <ElementKind>Jin</ElementKind>
+    <Item Lable="Other"><NotRandom>1</NotRandom><PhysicalLables><li>Heavy2</li><li>Hard2</li><li>HighDensity2</li></PhysicalLables></Item>
+    <Ling><AddionLing>200</AddionLing><AddionRadius>3</AddionRadius><AddionFailing>1</AddionFailing><AddionFailRadius>1</AddionFailRadius><Attenuation>0.03</Attenuation><Absorption>0.8</Absorption><Accommodate>200</Accommodate></Ling>
+    <Element><Kind>Jin</Kind><Value>12</Value><Radius>3</Radius><Failing>0.8</Failing><FailRadius>1</FailRadius></Element>
+  </ThingDef>
+
+  <ThingDef Type="Item" Name="Item_Xaou_OtherworldOre_Water" Parent="FengShuiItemBase">
+    <ThingName>แท่งแร่ต่างโลกแห่งวารี</ThingName>
+    <Desc>แท่งแร่ลึกลับจากโลกอื่น แสงสีน้ำเงินไหลเวียนอยู่ภายในไม่ขาดสาย ช่วยรักษากระแสพลังวิญญาณให้ต่อเนื่องและเยือกเย็น</Desc>
+    <TexPath>res\Sprs\object\object_hanjingingot</TexPath>
+    <TexScale>0.65</TexScale>
+    <Rate>9</Rate>
+    <ElementKind>Shui</ElementKind>
+    <Item Lable="Other"><NotRandom>1</NotRandom><PhysicalLables><li>Heavy2</li><li>Hard2</li></PhysicalLables></Item>
+    <Ling><AddionLing>200</AddionLing><AddionRadius>3</AddionRadius><AddionFailing>1</AddionFailing><AddionFailRadius>1</AddionFailRadius><Attenuation>0.03</Attenuation><Absorption>0.8</Absorption><Accommodate>200</Accommodate></Ling>
+    <Element><Kind>Shui</Kind><Value>12</Value><Radius>3</Radius><Failing>0.8</Failing><FailRadius>1</FailRadius></Element>
+  </ThingDef>
+</List></ThingDefs>
+
