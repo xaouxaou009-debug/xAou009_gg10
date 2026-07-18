@@ -66,6 +66,7 @@ function XaouDailyShop:OnEnter()
 end
 
 function XaouDailyShop:OnStep(dt)
+    if XaouShop_PlacementStep then pcall(XaouShop_PlacementStep) end
     self._shopTimer = (self._shopTimer or 0) + (tonumber(dt) or 0)
     if self._shopTimer < 1 then return end
     self._shopTimer = 0

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ThingDefs><List>
+  <ThingDef Type="Item" Name="Item_Xaou_FurniturePermit_Wood" Parent="ItemBase">
+    <ThingName>ชุดประกอบแท่นฮวงจุ้ยธาตุไม้</ThingName><Desc>ชุดประกอบเฟอร์นิเจอร์ฮวงจุ้ยธาตุไม้ ซื้อแล้วเลือกตำแหน่งวางได้ทันที หากยกเลิก ชุดประกอบจะยังคงอยู่</Desc>
+    <TexPath>res\Sprs\object\object_benyuanmu01</TexPath><TexScale>0.65</TexScale><MaxStack>50</MaxStack><Rate>9</Rate><ElementKind>Mu</ElementKind>
+    <Item Lable="Other"><NotRandom>1</NotRandom></Item>
+  </ThingDef>
+  <ThingDef Type="Item" Name="Item_Xaou_FurniturePermit_Fire" Parent="ItemBase">
+    <ThingName>ชุดประกอบแท่นฮวงจุ้ยธาตุไฟ</ThingName><Desc>ชุดประกอบเฟอร์นิเจอร์ฮวงจุ้ยธาตุไฟ ซื้อแล้วเลือกตำแหน่งวางได้ทันที หากยกเลิก ชุดประกอบจะยังคงอยู่</Desc>
+    <TexPath>res\Sprs\object\object_huojingingot</TexPath><TexScale>0.65</TexScale><MaxStack>50</MaxStack><Rate>9</Rate><ElementKind>Huo</ElementKind>
+    <Item Lable="Other"><NotRandom>1</NotRandom></Item>
+  </ThingDef>
+  <ThingDef Type="Item" Name="Item_Xaou_FurniturePermit_Earth" Parent="ItemBase">
+    <ThingName>ชุดประกอบแท่นฮวงจุ้ยธาตุดิน</ThingName><Desc>ชุดประกอบเฟอร์นิเจอร์ฮวงจุ้ยธาตุดิน ซื้อแล้วเลือกตำแหน่งวางได้ทันที หากยกเลิก ชุดประกอบจะยังคงอยู่</Desc>
+    <TexPath>res\Sprs\object\object_zaohuaYZ01</TexPath><TexScale>0.65</TexScale><MaxStack>50</MaxStack><Rate>9</Rate><ElementKind>Tu</ElementKind>
+    <Item Lable="Other"><NotRandom>1</NotRandom></Item>
+  </ThingDef>
+  <ThingDef Type="Item" Name="Item_Xaou_FurniturePermit_Metal" Parent="ItemBase">
+    <ThingName>ชุดประกอบแท่นฮวงจุ้ยธาตุโลหะ</ThingName><Desc>ชุดประกอบเฟอร์นิเจอร์ฮวงจุ้ยธาตุโลหะ ซื้อแล้วเลือกตำแหน่งวางได้ทันที หากยกเลิก ชุดประกอบจะยังคงอยู่</Desc>
+    <TexPath>res\Sprs\object\object_stariron</TexPath><TexScale>0.65</TexScale><MaxStack>50</MaxStack><Rate>9</Rate><ElementKind>Jin</ElementKind>
+    <Item Lable="Other"><NotRandom>1</NotRandom></Item>
+  </ThingDef>
+  <ThingDef Type="Item" Name="Item_Xaou_FurniturePermit_Water" Parent="ItemBase">
+    <ThingName>ชุดประกอบแท่นฮวงจุ้ยธาตุน้ำ</ThingName><Desc>ชุดประกอบเฟอร์นิเจอร์ฮวงจุ้ยธาตุน้ำ ซื้อแล้วเลือกตำแหน่งวางได้ทันที หากยกเลิก ชุดประกอบจะยังคงอยู่</Desc>
+    <TexPath>res\Sprs\object\object_hanjingingot</TexPath><TexScale>0.65</TexScale><MaxStack>50</MaxStack><Rate>9</Rate><ElementKind>Shui</ElementKind>
+    <Item Lable="Other"><NotRandom>1</NotRandom></Item>
+  </ThingDef>
+</List></ThingDefs>

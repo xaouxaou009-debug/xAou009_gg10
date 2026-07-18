@@ -33,11 +33,22 @@ end
 
 local function info_for(id)
     local def = XaouShop_GetDef and XaouShop_GetDef(id) or nil
+    if def == nil and XaouShop_GetBuildingDef ~= nil then
+        def = XaouShop_GetBuildingDef(id)
+    end
     local info = {name=tostring(id or ""), desc="", icon=""}
     if def ~= nil then
         pcall(function() info.name = tostring(def.ThingName or def.DisplayName or id) end)
         pcall(function() info.desc = tostring(def.Desc or "") end)
         pcall(function() info.icon = tostring(def.TexPath or "") end)
+    end
+    for _, entry in ipairs(XaouShop_SpecialItems or {}) do
+        if tostring(entry.id or "") == tostring(id or "") then
+            if entry.displayName ~= nil then info.name = tostring(entry.displayName) end
+            if entry.description ~= nil then info.desc = tostring(entry.description) end
+            if entry.icon ~= nil then info.icon = tostring(entry.icon) end
+            break
+        end
     end
     return info
 end
@@ -85,13 +96,18 @@ local function refresh_detail(view)
     local info = info_for(row.id)
     set_text(child(view, "detailName"), info.name)
     set_text(child(view, "detailDesc"), info.desc ~= "" and info.desc or row.id)
+    local isBuilding = tostring(row.kind or "item") == "building"
+    if isBuilding then XSPECIAL_Quantity = 1 end
     set_text(child(view, "detailPrice"), "ราคา: " .. tostring(row.price) .. " / ชิ้น  |  รวม " .. tostring(row.price * XSPECIAL_Quantity))
     set_text(child(view, "detailStock"), "สิทธิ์คงเหลือ: " .. tostring(row.stock) .. "/" .. tostring(row.limit))
-    set_text(child(view, "qtyLabel"), "จำนวน: " .. tostring(XSPECIAL_Quantity))
+    set_text(child(view, "qtyLabel"), isBuilding and "ซื้อและวางครั้งละ 1 ชิ้น" or ("จำนวน: " .. tostring(XSPECIAL_Quantity)))
     local icon = child(view, "detailIcon")
     pcall(function() icon.url = info.icon end)
     set_visible(icon, info.icon ~= "")
     set_enabled(child(view, "btnBuy"), not XSPECIAL_Busy and row.stock >= XSPECIAL_Quantity)
+    set_enabled(child(view, "btnQty1"), not isBuilding)
+    set_enabled(child(view, "btnQty5"), not isBuilding)
+    set_enabled(child(view, "btnQty10"), not isBuilding)
 end
 
 local function refresh(view)
@@ -164,6 +180,8 @@ local function buy(view)
     if XSPECIAL_Busy then return end
     local row = XSPECIAL_Rows[XSPECIAL_Selected]
     if row == nil then set_status("กรุณาเลือกของพิเศษ", "error"); refresh(view); return end
+    local isBuilding = tostring(row.kind or "item") == "building"
+    if isBuilding then XSPECIAL_Quantity = 1 end
     XSPECIAL_Busy = true
     set_status("กำลังซื้อสินค้า...", nil); refresh(view)
     local ok, result, detail = pcall(function()
@@ -171,12 +189,24 @@ local function buy(view)
     end)
     XSPECIAL_Busy = false
     if ok and result == true then
+        if isBuilding then
+            local placementOk, placementError = XaouShop_StartBuildingPlacement(row.id)
+            if placementOk then
+                XaouSpecialShop_Close()
+                if XaouShop_CloseWindow ~= nil then pcall(XaouShop_CloseWindow) end
+                return
+            end
+            set_status("ซื้อสำเร็จ แต่เปิดโหมดวางอาคารไม่ได้: " .. tostring(placementError), "error")
+            refresh(view)
+            return
+        end
         set_status("ซื้อ " .. info_for(row.id).name .. " จำนวน " .. tostring(XSPECIAL_Quantity) .. " สำเร็จ", "success")
     else
         local reason = detail or result
         if reason == "NOT_ENOUGH" then reason = "หินวิญญาณไม่เพียงพอ"
         elseif reason == "OUT_OF_STOCK" then reason = "ซื้อสินค้านี้ครบจำนวนจำกัดแล้ว"
-        elseif reason == "ITEM_NOT_FOUND" then reason = "ไม่พบ Item ID ในเกม" end
+        elseif reason == "ITEM_NOT_FOUND" then reason = "ไม่พบ Item ID ในเกม"
+        elseif reason == "BUILDING_ONE_AT_A_TIME" then reason = "เฟอร์นิเจอร์ซื้อและวางได้ครั้งละ 1 ชิ้น" end
         set_status("ซื้อไม่สำเร็จ: " .. tostring(reason or "ไม่ทราบสาเหตุ"), "error")
     end
     refresh(view)

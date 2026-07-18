@@ -2,6 +2,7 @@
 
 XaouShop_State = XaouShop_State or {day=-1, items={}, backpack={}, specialBought={}, specialMonth=-1}
 local SHOP_POOL_VERSION = 2
+local XaouShop_PendingBuilding = nil
 
 local PRICE_BY_RATE = {
     [1]=1, [2]=2, [3]=3, [4]=4, [5]=5, [6]=10,
@@ -39,12 +40,92 @@ local function item_kind()
     return kind or 2
 end
 
+local function building_kind()
+    local kind = nil
+    pcall(function() kind = CS.XiaWorld.g_emThingType.Building end)
+    if kind == nil then pcall(function() kind = g_emThingType.Building end) end
+    -- g_emThingType.Building = 4. Mobile XLua may not expose enum members,
+    -- so the numeric fallback must not use Npc (1).
+    return kind or 4
+end
+
 function XaouShop_GetDef(id)
     local value = nil
     local mgr = thing_mgr()
     if mgr == nil then return nil end
     pcall(function() value = mgr:GetDef(item_kind(), tostring(id)) end)
     return value
+end
+
+function XaouShop_GetBuildingDef(id)
+    local value = nil
+    local mgr = thing_mgr()
+    if mgr == nil then return nil end
+    pcall(function() value = mgr:GetDef(building_kind(), tostring(id)) end)
+    if value ~= nil then
+        local actualName = nil
+        pcall(function() actualName = tostring(value.Name) end)
+        if actualName ~= tostring(id) then value = nil end
+    end
+    return value
+end
+
+function XaouShop_GetSpecialDef(entry)
+    if entry == nil then return nil end
+    if tostring(entry.kind or "item") == "building" then
+        return XaouShop_GetBuildingDef(entry.id)
+    end
+    return XaouShop_GetDef(entry.id)
+end
+
+function XaouShop_StartBuildingPlacement(buildingId)
+    buildingId = tostring(buildingId or "")
+    if buildingId == "" or XaouShop_GetBuildingDef(buildingId) == nil then
+        return false, "BUILDING_NOT_FOUND"
+    end
+    local mgr, mode = nil, nil
+    pcall(function() mgr = CS.XiaWorld.UILogicMgr.Instance end)
+    if mgr == nil then pcall(function() mgr = UILogicMgr end) end
+    pcall(function() mode = CS.XiaWorld.g_emUILogicMode.Build end)
+    if mode == nil then pcall(function() mode = g_emUILogicMode.Build end) end
+    if mgr == nil or mode == nil then return false, "BUILD_MODE_API_NOT_FOUND" end
+
+    local before = 0
+    pcall(function() before = tonumber(CS.XiaWorld.World.Instance.Warehouse:GetBuildingCount(buildingId)) or 0 end)
+
+    -- One params argument is enough; UILogicMode_Build selects WoodDef only
+    -- for its preview. These purchased furniture defs finish without materials.
+    local ok, err = pcall(function()
+        mgr:ChangeMode(mode, nil, false, buildingId)
+    end)
+    if not ok then return false, tostring(err) end
+    XaouShop_PendingBuilding = {id=buildingId, before=before}
+    return true
+end
+
+function XaouShop_PlacementStep()
+    local pending = XaouShop_PendingBuilding
+    if pending == nil then return end
+
+    local mgr, currentMode = nil, nil
+    pcall(function() mgr = CS.XiaWorld.UILogicMgr.Instance end)
+    if mgr == nil then pcall(function() mgr = UILogicMgr end) end
+    if mgr == nil then XaouShop_PendingBuilding = nil; return end
+    pcall(function() currentMode = tonumber(mgr.Mode) end)
+    if currentMode ~= nil and currentMode ~= 3 then
+        XaouShop_PendingBuilding = nil
+        return
+    end
+
+    local now = pending.before
+    pcall(function() now = tonumber(CS.XiaWorld.World.Instance.Warehouse:GetBuildingCount(pending.id)) or pending.before end)
+    if now <= pending.before then return end
+
+    XaouShop_PendingBuilding = nil
+    pcall(function()
+        local selectMode = CS.XiaWorld.g_emUILogicMode.Select
+        mgr:ChangeMode(selectMode, nil, false)
+    end)
 end
 
 function XaouShop_GetDay()
@@ -417,10 +498,15 @@ function XaouShop_GetSpecialRows(category)
         local id = entry.id and tostring(entry.id) or ""
         local itemCategory = tostring(entry.category or "other")
         local limit = math.max(1, math.floor(tonumber(entry.limit) or 1))
-        if id ~= "" and XaouShop_GetDef(id) ~= nil and (category == "all" or category == itemCategory) then
+        if id ~= "" and XaouShop_GetSpecialDef(entry) ~= nil and (category == "all" or category == itemCategory) then
             local used = math.max(0, math.floor(tonumber(bought[id]) or 0))
             rows[#rows + 1] = {
                 id=id,
+                kind=tostring(entry.kind or "item"),
+                grantId=entry.grantId and tostring(entry.grantId) or id,
+                displayName=entry.displayName,
+                description=entry.description,
+                icon=entry.icon,
                 category=itemCategory,
                 price=math.max(1, math.floor(tonumber(entry.price) or 1)),
                 limit=limit,
@@ -439,7 +525,12 @@ function XaouShop_BuySpecial(id, quantity, target)
     for _, entry in ipairs(XaouShop_SpecialItems or {}) do
         if tostring(entry.id or "") == id then selected = entry; break end
     end
-    if selected == nil or XaouShop_GetDef(id) == nil then return false, "ITEM_NOT_FOUND" end
+    if selected == nil or XaouShop_GetSpecialDef(selected) == nil then return false, "ITEM_NOT_FOUND" end
+
+    local isBuilding = tostring(selected.kind or "item") == "building"
+    if isBuilding and quantity ~= 1 then return false, "BUILDING_ONE_AT_A_TIME" end
+    local grantId = selected.grantId and tostring(selected.grantId) or id
+    if not isBuilding and XaouShop_GetDef(grantId) == nil then return false, "ITEM_NOT_FOUND" end
 
     local bought = ensure_special_bought()
     local limit = math.max(1, math.floor(tonumber(selected.limit) or 1))
@@ -450,10 +541,12 @@ function XaouShop_BuySpecial(id, quantity, target)
     local total = price * quantity
     local paid, payError = deduct_currency(total, target)
     if not paid then return false, payError end
-    local spawned, spawnError = drop_item(id, quantity, target)
-    if not spawned then
-        drop_item("Item_LingStone", total, target)
-        return false, "SPAWN_FAILED: " .. tostring(spawnError)
+    if not isBuilding then
+        local spawned, spawnError = drop_item(grantId, quantity, target)
+        if not spawned then
+            drop_item("Item_LingStone", total, target)
+            return false, "SPAWN_FAILED: " .. tostring(spawnError)
+        end
     end
     bought[id] = used + quantity
     return true, {id=id, quantity=quantity, total=total, stock=limit - bought[id]}
