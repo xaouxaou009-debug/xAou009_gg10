@@ -1,0 +1,39 @@
+<Esotericas><List>
+	<Esoterica Name="XaouBodhi_Eso_GroupQi">
+		<DisplayName>แสงโพธิ์ฟื้นปราณ</DisplayName>
+		<Icon>res/Sprs/ui/icon_shufa</Icon>
+		<StarLevel>0</StarLevel>
+		<Difficulty>2</Difficulty>
+		<Desc>แผ่พลังเมตตาฟื้นฟูปราณให้มิตรในสนามรบ</Desc>
+		<GLevel>Qi</GLevel>
+		<Element>Shui</Element>
+		<Type>Skill</Type>
+		<EffectDesc>[size=10][color=#D06508]เรียนรู้สกิลสนับสนุนอัตโนมัติ: แสงโพธิ์ฟื้นปราณ[/color][/size]</EffectDesc>
+		<Skills><li>XaouBodhi_GroupQi</li></Skills>
+		<Modifier>XaouBodhi_AutoSkillSlots</Modifier>
+	</Esoterica>
+	<Esoterica Name="XaouBodhi_Eso_GroupShield">
+		<DisplayName>ม่านแสงคุ้มกาย</DisplayName>
+		<Icon>res/Sprs/ui/icon_shufa</Icon>
+		<StarLevel>0</StarLevel>
+		<Difficulty>3</Difficulty>
+		<Desc>สร้างเกราะปราณคุ้มครองฝ่ายเดียวกันในสนามรบ</Desc>
+		<GLevel>Qi</GLevel>
+		<Element>Tu</Element>
+		<Type>Skill</Type>
+		<EffectDesc>[size=10][color=#D06508]เรียนรู้สกิลสนับสนุนอัตโนมัติ: ม่านแสงคุ้มกาย[/color][/size]</EffectDesc>
+		<Skills><li>XaouBodhi_GroupShield</li></Skills>
+	</Esoterica>
+	<Esoterica Name="XaouBodhi_Eso_MercyRain">
+		<DisplayName>ฝนเมตตาคืนปราณ</DisplayName>
+		<Icon>res/Sprs/ui/icon_shufa</Icon>
+		<StarLevel>1</StarLevel>
+		<Difficulty>5</Difficulty>
+		<Desc>ช่วยมิตรที่ปราณต่ำที่สุดด้วยพลังฟื้นฟูเข้มข้น</Desc>
+		<GLevel>Qi</GLevel>
+		<Element>Shui</Element>
+		<Type>Skill</Type>
+		<EffectDesc>[size=10][color=#D06508]เรียนรู้สกิลสนับสนุนอัตโนมัติ: ฝนเมตตาคืนปราณ[/color][/size]</EffectDesc>
+		<Skills><li>XaouBodhi_MercyRain</li></Skills>
+	</Esoterica>
+</List></Esotericas>

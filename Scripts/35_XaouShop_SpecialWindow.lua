@@ -14,8 +14,9 @@ end
 
 local function set_text(obj, value)
     if obj == nil then return end
-    pcall(function() obj.text = tostring(value or "") end)
-    pcall(function() obj.title = tostring(value or "") end)
+    local text = XaouShop_Localize and XaouShop_Localize(value) or tostring(value or "")
+    pcall(function() obj.text = text end)
+    pcall(function() obj.title = text end)
 end
 
 local function set_visible(obj, value)
@@ -96,18 +97,21 @@ local function refresh_detail(view)
     local info = info_for(row.id)
     set_text(child(view, "detailName"), info.name)
     set_text(child(view, "detailDesc"), info.desc ~= "" and info.desc or row.id)
-    local isBuilding = tostring(row.kind or "item") == "building"
-    if isBuilding then XSPECIAL_Quantity = 1 end
+    local rowKind = tostring(row.kind or "item")
+    local isBuilding = rowKind == "building"
+    local isGong = rowKind == "gong"
+    local singleOnly = isBuilding or isGong
+    if singleOnly then XSPECIAL_Quantity = 1 end
     set_text(child(view, "detailPrice"), "ราคา: " .. tostring(row.price) .. " / ชิ้น  |  รวม " .. tostring(row.price * XSPECIAL_Quantity))
     set_text(child(view, "detailStock"), "สิทธิ์คงเหลือ: " .. tostring(row.stock) .. "/" .. tostring(row.limit))
-    set_text(child(view, "qtyLabel"), isBuilding and "ซื้อและวางครั้งละ 1 ชิ้น" or ("จำนวน: " .. tostring(XSPECIAL_Quantity)))
+    set_text(child(view, "qtyLabel"), isBuilding and "ซื้อและวางครั้งละ 1 ชิ้น" or (isGong and "ซื้อครั้งเดียว ปลดล็อกให้ทั้งสำนัก" or ("จำนวน: " .. tostring(XSPECIAL_Quantity))))
     local icon = child(view, "detailIcon")
     pcall(function() icon.url = info.icon end)
     set_visible(icon, info.icon ~= "")
     set_enabled(child(view, "btnBuy"), not XSPECIAL_Busy and row.stock >= XSPECIAL_Quantity)
-    set_enabled(child(view, "btnQty1"), not isBuilding)
-    set_enabled(child(view, "btnQty5"), not isBuilding)
-    set_enabled(child(view, "btnQty10"), not isBuilding)
+    set_enabled(child(view, "btnQty1"), not singleOnly)
+    set_enabled(child(view, "btnQty5"), not singleOnly)
+    set_enabled(child(view, "btnQty10"), not singleOnly)
 end
 
 local function refresh(view)
@@ -180,8 +184,32 @@ local function buy(view)
     if XSPECIAL_Busy then return end
     local row = XSPECIAL_Rows[XSPECIAL_Selected]
     if row == nil then set_status("กรุณาเลือกของพิเศษ", "error"); refresh(view); return end
-    local isBuilding = tostring(row.kind or "item") == "building"
-    if isBuilding then XSPECIAL_Quantity = 1 end
+    local rowKind = tostring(row.kind or "item")
+    local isBuilding = rowKind == "building"
+    local isGong = rowKind == "gong"
+    if isBuilding or isGong then XSPECIAL_Quantity = 1 end
+
+    if isGong then
+        XSPECIAL_Busy = true
+        set_status("กำลังปลดล็อกวิชาให้สำนัก...", nil); refresh(view)
+        local ok, result, detail = pcall(function()
+            return XaouShop_BuySpecial(row.id, 1, XSPECIAL_Target)
+        end)
+        XSPECIAL_Busy = false
+        if ok and result == true then
+            set_status("ปลดล็อกวิชาโพธิจิตเมตตาแห่ง Xaou สำเร็จแล้ว", "success")
+        else
+            local reason = detail or result
+            if reason == "NOT_ENOUGH" then reason = "หินวิญญาณไม่เพียงพอ"
+            elseif reason == "ALREADY_UNLOCKED" then reason = "สำนักปลดล็อกวิชานี้แล้ว"
+            elseif reason == "UNLOCK_GONG_FAILED" then reason = "เกมไม่ยอมปลดล็อกวิชา"
+            elseif reason == "ITEM_NOT_FOUND" then reason = "ไม่พบข้อมูลวิชา กรุณาตรวจไฟล์ Settings"
+            end
+            set_status("ปลดล็อกวิชาไม่สำเร็จ: " .. tostring(reason or "ไม่ทราบสาเหตุ"), "error")
+        end
+        refresh(view)
+        return
+    end
     XSPECIAL_Busy = true
     set_status("กำลังซื้อสินค้า...", nil); refresh(view)
     local ok, result, detail = pcall(function()

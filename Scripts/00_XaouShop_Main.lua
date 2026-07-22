@@ -1,8 +1,11 @@
 -- Xaou 009 Daily Shop standalone entry point.
 
+pcall(require, 'Scripts/05_XaouShop_I18N.lua')
 pcall(require, 'Scripts/10_XaouShop_ItemPool.lua')
 pcall(require, 'Scripts/11_XaouShop_AllItemPacks.lua')
 pcall(require, 'Scripts/12_XaouShop_SpecialItems.lua')
+pcall(require, 'Scripts/13_XaouShop_BodhiGong.lua')
+pcall(require, 'Scripts/14_XaouShop_BodhiAutoCombat.lua')
 pcall(require, 'Scripts/20_XaouShop_Core.lua')
 pcall(require, 'Scripts/30_XaouShop_Window.lua')
 pcall(require, 'Scripts/35_XaouShop_SpecialWindow.lua')
@@ -13,7 +16,7 @@ pcall(require, 'Scripts/60_XaouShop_DailyLogin.lua')
 local XaouDailyShop = GameMain:NewMod("Xaou009DailyShop")
 
 local function show(text)
-    pcall(function() world:ShowMsgBox(tostring(text)) end)
+    pcall(function() world:ShowMsgBox(XaouShop_Localize and XaouShop_Localize(text) or tostring(text)) end)
 end
 
 function XaouDailyShop:Open(npc)
@@ -43,25 +46,30 @@ function XaouDailyShop:OnEnter()
         event:RegisterEvent(g_emEvent.SelectNpc, function(evt, npc, objs)
             if npc ~= nil and npc.ThingType == g_emThingType.Npc then
                 pcall(function() npc:RemoveBtnData("ชื้อ/ขาย") end)
+                pcall(function() npc:RemoveBtnData("Buy / Sell") end)
+                local shopText = XaouShop_GetLanguage and XaouShop_GetLanguage() == "EN" and "Buy / Sell" or "ชื้อ/ขาย"
                 npc:AddBtnData(
-                    "ชื้อ/ขาย",
+                    shopText,
                     "res/Sprs/ui/icon_hand",
                     "GameMain:GetMod('Xaou009DailyShop'):Open(bind)",
-                    "เปิดร้านค้ารายวันของ Xaou 009",
+                    XaouShop_Localize and XaouShop_Localize("เปิดร้านค้ารายวันของ Xaou 009") or "เปิดร้านค้ารายวันของ Xaou 009",
                     nil
                 )
                 pcall(function() npc:RemoveBtnData("กระเป๋า") end)
+                pcall(function() npc:RemoveBtnData("Backpack") end)
+                local bagText = XaouShop_GetLanguage and XaouShop_GetLanguage() == "EN" and "Backpack" or "กระเป๋า"
                 npc:AddBtnData(
-                    "กระเป๋า",
+                    bagText,
                     "res/Sprs/ui/icon_hand",
                     "GameMain:GetMod('Xaou009DailyShop'):OpenBackpack(bind)",
-                    "เปิดกระเป๋ากลางของ Xaou 009",
+                    XaouShop_Localize and XaouShop_Localize("เปิดกระเป๋ากลางของ Xaou 009") or "เปิดกระเป๋ากลางของ Xaou 009",
                     nil
                 )
             end
         end, "Xaou009DailyShop_SelectNpc")
     end
     if XaouShop_EnsureDaily then pcall(XaouShop_EnsureDaily) end
+    if XaouBodhi_RefreshAutoSkills then pcall(XaouBodhi_RefreshAutoSkills) end
     if XaouUpdateChecker_Start then pcall(XaouUpdateChecker_Start) end
 end
 
@@ -70,6 +78,7 @@ function XaouDailyShop:OnStep(dt)
     self._shopTimer = (self._shopTimer or 0) + (tonumber(dt) or 0)
     if self._shopTimer < 1 then return end
     self._shopTimer = 0
+    if XaouBodhi_RefreshAutoSkills then pcall(XaouBodhi_RefreshAutoSkills) end
     if XaouShop_EnsureDaily then pcall(XaouShop_EnsureDaily) end
     local loginDay = XaouDailyLogin_GetToday and XaouDailyLogin_GetToday() or XaouShop_GetDay()
     if self._loginAutoDay ~= loginDay then
@@ -92,6 +101,7 @@ end
 
 function XaouDailyShop:OnAfterLoad()
     if XaouShop_EnsureDaily then pcall(XaouShop_EnsureDaily) end
+    if XaouBodhi_RefreshAutoSkills then pcall(XaouBodhi_RefreshAutoSkills) end
 end
 
 function XaouDailyShop:OnLeave()

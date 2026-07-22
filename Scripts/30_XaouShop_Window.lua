@@ -1,6 +1,6 @@
 -- Standalone FairyGUI window for Xaou 009 Daily Shop.
 
-local XSHOP_View, XSHOP_Target = nil, nil
+local XSHOP_View, XSHOP_Target, XSHOP_LanguageButton = nil, nil, nil
 local XSHOP_Selected, XSHOP_Quantity = 1, 1
 local XSHOP_Busy, XSHOP_Status, XSHOP_StatusKind = false, nil, nil
 local XSHOP_Mode, XSHOP_Page, XSHOP_SellRows = "buy", 1, {}
@@ -14,8 +14,9 @@ end
 
 local function set_text(obj, value)
     if obj == nil then return end
-    pcall(function() obj.text = tostring(value or "") end)
-    pcall(function() obj.title = tostring(value or "") end)
+    local text = XaouShop_Localize and XaouShop_Localize(value) or tostring(value or "")
+    pcall(function() obj.text = text end)
+    pcall(function() obj.title = text end)
 end
 
 local function set_visible(obj, value)
@@ -51,6 +52,19 @@ local function selected_row()
     return current_rows()[XSHOP_Selected]
 end
 
+local function quantity_limit(row)
+    if row == nil then return 1 end
+    local available = XSHOP_Mode == "sell" and tonumber(row.count) or tonumber(row.stock)
+    available = math.max(0, math.floor(available or 0))
+    if XSHOP_Mode == "buy" then available = math.min(10, available) end
+    return math.max(1, available)
+end
+
+local function clamp_quantity(row)
+    XSHOP_Quantity = math.max(1, math.min(quantity_limit(row), math.floor(tonumber(XSHOP_Quantity) or 1)))
+    return XSHOP_Quantity
+end
+
 local function refresh_sell_rows()
     XSHOP_SellRows = XaouShop_GetSellItems and XaouShop_GetSellItems() or {}
 end
@@ -68,6 +82,7 @@ function XaouShop_CloseWindow()
         pcall(function() XSHOP_View:RemoveFromParent() end)
         pcall(function() XSHOP_View:Dispose() end)
         XSHOP_View = nil
+        XSHOP_LanguageButton = nil
     end
 end
 
@@ -83,17 +98,24 @@ local function refresh_detail(view)
         return
     end
     local info = def_info(row.id)
+    local available = XSHOP_Mode == "sell" and tonumber(row.count) or tonumber(row.stock)
+    clamp_quantity(row)
     local total = math.max(1, tonumber(row.price) or 1) * XSHOP_Quantity
     set_text(child(view, "detailName"), info.name)
     set_text(child(view, "detailDesc"), info.desc ~= "" and info.desc or tostring(row.id))
     set_text(child(view, "detailPrice"), "ราคา: " .. tostring(row.price) .. " / ชิ้น  |  รวม " .. tostring(total))
-    local available = XSHOP_Mode == "sell" and tonumber(row.count) or tonumber(row.stock)
     if XSHOP_Mode == "sell" then
         set_text(child(view, "detailStock"), "มีอยู่: " .. tostring(available or 0))
     else
         set_text(child(view, "detailStock"), "คงเหลือ: " .. tostring(available or 0) .. "/10")
     end
-    set_text(child(view, "qtyLabel"), "จำนวน: " .. tostring(XSHOP_Quantity))
+    set_text(child(view, "qtyLabel"), "จำนวนที่เลือก: " .. tostring(XSHOP_Quantity))
+    set_text(child(view, "btnQty1"), "−")
+    set_text(child(view, "btnQty5"), tostring(XSHOP_Quantity))
+    set_text(child(view, "btnQty10"), "+")
+    set_enabled(child(view, "btnQty1"), XSHOP_Quantity > 1)
+    set_enabled(child(view, "btnQty5"), quantity_limit(row) > 1)
+    set_enabled(child(view, "btnQty10"), XSHOP_Quantity < quantity_limit(row))
     local loader = child(view, "detailIcon")
     pcall(function() loader.url = info.icon end)
     set_visible(loader, info.icon ~= "")
@@ -111,11 +133,9 @@ local function refresh(view)
     set_text(child(view, "btnModeSell"), XSHOP_Mode == "sell" and "▶ ขายของ" or "ขายของ")
     set_text(child(view, "btnDailyLogin"), "เช็กอิน 7 วัน")
     set_text(child(view, "btnSpecial"), "ของพิเศษ")
-    set_text(child(view, "btnQty1"), "1")
-    set_text(child(view, "btnQty5"), "5")
-    set_text(child(view, "btnQty10"), "10")
     set_text(child(view, "btnBuy"), XSHOP_Mode == "sell" and "ขายของ" or "ซื้อสินค้า")
     set_text(child(view, "brand"), "Xaou 009 • Beginner Buy & Sell Shop")
+    set_text(XSHOP_LanguageButton, "TH / EN")
 
     if XSHOP_Mode == "sell" then refresh_sell_rows() end
     local pages = page_count()
@@ -224,6 +244,22 @@ function XaouShop_OpenWindow(target)
     view.x = (root.width - view.width) / 2
     view.y = (root.height - view.height) / 2
 
+    local languageButton = nil
+    pcall(function() languageButton = pkg.CreateObject("XaouShop", "ShopButton") end)
+    if languageButton ~= nil then
+        XSHOP_LanguageButton = languageButton
+        pcall(function() languageButton.name = "btnLanguage" end)
+        pcall(function() languageButton:SetSize(96, 34) end)
+        pcall(function() languageButton.width = 96; languageButton.height = 34 end)
+        pcall(function() languageButton.x = 858; languageButton.y = 16 end)
+        pcall(function() view:AddChild(languageButton) end)
+        pcall(function() languageButton.onClick:Add(function()
+            if XaouShop_ToggleLanguage then XaouShop_ToggleLanguage() end
+            set_status(nil, nil)
+            refresh(view)
+        end) end)
+    end
+
     for i = 1, 10 do
         local index = i
         local card = child(view, "item" .. tostring(i))
@@ -234,15 +270,21 @@ function XaouShop_OpenWindow(target)
             refresh(view)
         end) end
     end
-    local quantities = {{"btnQty1",1},{"btnQty5",5},{"btnQty10",10}}
-    for _, pair in ipairs(quantities) do
-        local amount = pair[2]
-        local button = child(view, pair[1])
-        if button ~= nil then button.onClick:Add(function()
-            XSHOP_Quantity = amount
-            refresh_detail(view)
-        end) end
-    end
+    local qtyDown = child(view, "btnQty1")
+    if qtyDown ~= nil then qtyDown.onClick:Add(function()
+        XSHOP_Quantity = math.max(1, XSHOP_Quantity - 1)
+        refresh_detail(view)
+    end) end
+    local qtyMax = child(view, "btnQty5")
+    if qtyMax ~= nil then qtyMax.onClick:Add(function()
+        XSHOP_Quantity = quantity_limit(selected_row())
+        refresh_detail(view)
+    end) end
+    local qtyUp = child(view, "btnQty10")
+    if qtyUp ~= nil then qtyUp.onClick:Add(function()
+        XSHOP_Quantity = math.min(quantity_limit(selected_row()), XSHOP_Quantity + 1)
+        refresh_detail(view)
+    end) end
     local buyButton = child(view, "btnBuy")
     if buyButton ~= nil then buyButton.onClick:Add(function() transact(view) end) end
     local modeBuy = child(view, "btnModeBuy")

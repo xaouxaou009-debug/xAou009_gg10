@@ -14,8 +14,9 @@ end
 
 local function set_text(obj, value)
     if obj == nil then return end
-    pcall(function() obj.text = tostring(value or "") end)
-    pcall(function() obj.title = tostring(value or "") end)
+    local text = XaouShop_Localize and XaouShop_Localize(value) or tostring(value or "")
+    pcall(function() obj.text = text end)
+    pcall(function() obj.title = text end)
 end
 
 local function set_visible(obj, value)

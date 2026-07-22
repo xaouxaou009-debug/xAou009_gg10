@@ -11,6 +11,10 @@ XaouShop_SpecialCategories = {
 }
 
 XaouShop_SpecialItems = {
+    {id="Gong_Xaou_009_Bodhi", kind="gong", gongId="Gong_Xaou_009_Bodhi", category="manual", price=5000, limit=1,
+        displayName="วิชาโพธิจิตเมตตาแห่ง Xaou",
+        description="ซื้อครั้งเดียวเพื่อปลดล็อกวิชาบ่มเพาะให้ทั้งสำนัก เน้นฟื้นปราณหมู่ ช่วยผู้มีปราณต่ำ และสร้างเกราะให้มิตร",
+        icon="res/Sprs/ui/icon_shufa"},
     {id="Item_Xaou_OtherworldOre_Wood",  category="cultivation", price=2000, limit=50},
     {id="Item_Xaou_OtherworldOre_Fire",  category="cultivation", price=2000, limit=50},
     {id="Item_Xaou_OtherworldOre_Earth", category="cultivation", price=2000, limit=50},

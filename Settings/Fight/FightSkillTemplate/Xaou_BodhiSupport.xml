@@ -1,0 +1,51 @@
+<FightSkills><List>
+	<Skill Name="XaouBodhi_GroupQi">
+		<DisplayName>แสงโพธิ์ฟื้นปราณ</DisplayName>
+		<IsTemplate>0</IsTemplate>
+		<Kind>Health</Kind>
+		<ShowInUI>1</ShowInUI>
+		<SingTime>0.5</SingTime>
+		<CD>60</CD>
+		<LingCost>300</LingCost>
+		<SingAni>assemble</SingAni>
+		<CastAni>LJjineng7</CastAni>
+		<Value>1200</Value>
+		<TargetCamp>Friendly</TargetCamp>
+		<Shape>Single</Shape>
+		<SelectType>AllNpc</SelectType>
+		<HitEffect>66</HitEffect>
+	</Skill>
+	<Skill Name="XaouBodhi_MercyRain">
+		<DisplayName>ฝนเมตตาคืนปราณ</DisplayName>
+		<IsTemplate>0</IsTemplate>
+		<Kind>Health</Kind>
+		<ShowInUI>1</ShowInUI>
+		<SingTime>0.5</SingTime>
+		<CD>120</CD>
+		<LingCost>500</LingCost>
+		<SingAni>assemble</SingAni>
+		<CastAni>LJjineng7</CastAni>
+		<Value>2600</Value>
+		<TargetCamp>Friendly</TargetCamp>
+		<Shape>Single</Shape>
+		<SelectType>LowLing</SelectType>
+		<HitEffect>48</HitEffect>
+	</Skill>
+	<Skill Name="XaouBodhi_GroupShield">
+		<DisplayName>ม่านแสงคุ้มกาย</DisplayName>
+		<IsTemplate>0</IsTemplate>
+		<Kind>Sheild</Kind>
+		<ShowInUI>1</ShowInUI>
+		<SingTime>0.5</SingTime>
+		<CD>45</CD>
+		<LingCost>400</LingCost>
+		<SingAni>assemble</SingAni>
+		<CastAni>LJjineng10</CastAni>
+		<Value>0.65</Value>
+		<Value2>20</Value2>
+		<TargetCamp>Friendly</TargetCamp>
+		<Shape>Single</Shape>
+		<SelectType>AllNpc</SelectType>
+		<HitEffect>60</HitEffect>
+	</Skill>
+</List></FightSkills>

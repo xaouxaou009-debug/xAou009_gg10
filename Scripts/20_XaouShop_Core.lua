@@ -1,7 +1,7 @@
 -- Xaou 009 Daily Shop core. No dependency on another mod.
 
-XaouShop_State = XaouShop_State or {day=-1, items={}, backpack={}, specialBought={}, specialMonth=-1}
-local SHOP_POOL_VERSION = 2
+XaouShop_State = XaouShop_State or {day=-1, items={}, backpack={}, specialBought={}, specialMonth=-1, membership={level=1}, language=XaouShop_Language or "TH"}
+local SHOP_POOL_VERSION = 4
 local XaouShop_PendingBuilding = nil
 
 local PRICE_BY_RATE = {
@@ -72,10 +72,41 @@ end
 
 function XaouShop_GetSpecialDef(entry)
     if entry == nil then return nil end
-    if tostring(entry.kind or "item") == "building" then
+    local kind = tostring(entry.kind or "item")
+    if kind == "gong" then
+        local value = nil
+        pcall(function()
+            value = CS.XiaWorld.PracticeMgr.Instance:GetGongDef(tostring(entry.gongId or entry.id))
+        end)
+        return value
+    end
+    if kind == "building" then
         return XaouShop_GetBuildingDef(entry.id)
     end
     return XaouShop_GetDef(entry.id)
+end
+
+function XaouShop_IsGongUnlocked(gongId)
+    local unlocked = false
+    local ok = pcall(function()
+        unlocked = CS.XiaWorld.SchoolMgr.Instance:IsGongUnLocked(tostring(gongId or "")) == true
+    end)
+    return ok and unlocked
+end
+
+function XaouShop_UnlockGong(gongId)
+    gongId = tostring(gongId or "")
+    if gongId == "" then return false, "GONG_ID_EMPTY" end
+    if XaouShop_IsGongUnlocked(gongId) then return false, "ALREADY_UNLOCKED" end
+
+    local ok, value = pcall(function()
+        return CS.XiaWorld.SchoolMgr.Instance:UnLockGong(gongId, false)
+    end)
+    if not ok then return false, tostring(value) end
+    if value == true or XaouShop_IsGongUnlocked(gongId) then
+        return true, {gongId=gongId, unlocked=true}
+    end
+    return false, "UNLOCK_GONG_FAILED"
 end
 
 function XaouShop_StartBuildingPlacement(buildingId)
@@ -365,10 +396,88 @@ local function remove_items_by_id(id, amount, target)
     return true, nil, removed
 end
 
+function XaouShop_CountItem(id)
+    id = tostring(id or "")
+    if id == "" then return 0 end
+    local total = 0
+    local list = item_list()
+    for i = 0, count(list) - 1 do
+        local item = item_at(list, i)
+        if is_real_map_item(item) and item_def_name(item) == id then
+            total = total + stack_count(item)
+        end
+    end
+    return total
+end
+
+-- Checks every requirement first. If a later removal fails, previously
+-- removed stacks are dropped back near the selected NPC.
+function XaouShop_ConsumeItems(requirements, target)
+    if type(requirements) ~= "table" then return false, "INVALID_REQUIREMENTS" end
+    for _, row in ipairs(requirements) do
+        local id = tostring(row.id or "")
+        local amount = math.max(0, math.floor(tonumber(row.amount) or 0))
+        if id == "" or amount <= 0 then return false, "INVALID_REQUIREMENT" end
+        local owned = XaouShop_CountItem(id)
+        if owned < amount then return false, "NOT_ENOUGH:" .. id, {id=id, need=amount, owned=owned} end
+    end
+
+    local removed = {}
+    for _, row in ipairs(requirements) do
+        local id = tostring(row.id)
+        local amount = math.floor(tonumber(row.amount) or 0)
+        local ok, err, countRemoved = remove_items_by_id(id, amount, target)
+        if not ok then
+            for _, rollback in ipairs(removed) do
+                drop_item(rollback.id, rollback.amount, target)
+            end
+            return false, err or "REMOVE_FAILED", {id=id, removed=countRemoved or 0}
+        end
+        removed[#removed + 1] = {id=id, amount=amount}
+    end
+    return true, nil, removed
+end
+
 local function next_random(seed)
     seed = (seed * 48271) % 2147483647
     if seed <= 0 then seed = seed + 2147483646 end
     return seed
+end
+
+-- Daily stock must contain ordinary usable items only. The full item packs
+-- also include system unlockers, cultivation arts, formation diagrams and
+-- mounts; those remain available to other tools but never enter this shop.
+local function daily_shop_item_allowed(id, def, entry)
+    local category = string.lower(tostring((entry and (entry.cat or entry.category)) or ""))
+    local name = ""
+    pcall(function() name = tostring(def.ThingName or def.DisplayName or def.Name or "") end)
+    local searchable = string.lower(tostring(id or "") .. " " .. category .. " " .. name)
+
+    local blocked = {
+        -- Formation diagrams and arrays.
+        "zhentu", "formation", "arraydiagram", "ค่ายกล", "ผังค่าย", "阵图", "阵法",
+        -- Mounts and riding equipment.
+        "horsefrom", "mount", "saddle", "rideitem", "สัตว์ขี่", "พาหนะ", "坐骑",
+        -- Boss drops and boss body parts belong to progression content.
+        "boss", "dragonscale", "ของบอส", "ชิ้นส่วนบอส",
+        -- Cultivation arts, manuals, profession skills and recipes.
+        "body_gong", "esoterica", "normalattack", "itemshop_auto_",
+        "profession", "career", "blueprint", "recipe", "formula", "skillbook",
+        "คัมภีร์", "ตำราวิชา", "วิชาบ่มเพาะ", "วิชาอาชีพ", "อาชีพ", "功法", "秘籍", "职业",
+    }
+    for _, token in ipairs(blocked) do
+        if string.find(searchable, token, 1, true) ~= nil then return false end
+    end
+
+    -- Gong IDs are unlock data rather than ordinary inventory. Keep the
+    -- check narrow so items such as GongDe-related treasures are unaffected.
+    local lowerId = string.lower(tostring(id or ""))
+    if string.find(lowerId, "item_gong_", 1, true) ~= nil
+        or string.find(lowerId, "_gong_book", 1, true) ~= nil
+        or string.find(lowerId, "gongmanual", 1, true) ~= nil then
+        return false
+    end
+    return true
 end
 
 function XaouShop_Generate(day)
@@ -384,6 +493,7 @@ function XaouShop_Generate(day)
         if id == "" or id == "Item_LingStone" or seen[id] then return end
         local def = XaouShop_GetDef(id)
         if def == nil then return end
+        if not daily_shop_item_allowed(id, def, entry) then return end
         local category = tostring(entry.cat or entry.category or "อื่น")
         if category == "vkski" then category = "อาหาร" end
         if groups[category] == nil then
@@ -439,7 +549,9 @@ function XaouShop_Generate(day)
     local login = XaouShop_State and XaouShop_State.login or nil
     local specialBought = XaouShop_State and XaouShop_State.specialBought or {}
     local specialMonth = XaouShop_State and XaouShop_State.specialMonth or -1
-    XaouShop_State = {day=day, items=generated, backpack=backpack, login=login, specialBought=specialBought, specialMonth=specialMonth, poolVersion=SHOP_POOL_VERSION}
+    local membership = XaouShop_State and XaouShop_State.membership or {level=1}
+    local language = XaouShop_State and XaouShop_State.language or XaouShop_Language or "TH"
+    XaouShop_State = {day=day, items=generated, backpack=backpack, login=login, specialBought=specialBought, specialMonth=specialMonth, membership=membership, language=language, poolVersion=SHOP_POOL_VERSION}
     if XaouShop_RefreshWindow then pcall(XaouShop_RefreshWindow) end
     return #generated
 end
@@ -500,9 +612,13 @@ function XaouShop_GetSpecialRows(category)
         local limit = math.max(1, math.floor(tonumber(entry.limit) or 1))
         if id ~= "" and XaouShop_GetSpecialDef(entry) ~= nil and (category == "all" or category == itemCategory) then
             local used = math.max(0, math.floor(tonumber(bought[id]) or 0))
+            if tostring(entry.kind or "item") == "gong" and XaouShop_IsGongUnlocked(entry.gongId or id) then
+                used = limit
+            end
             rows[#rows + 1] = {
                 id=id,
                 kind=tostring(entry.kind or "item"),
+                gongId=entry.gongId and tostring(entry.gongId) or nil,
                 grantId=entry.grantId and tostring(entry.grantId) or id,
                 displayName=entry.displayName,
                 description=entry.description,
@@ -527,10 +643,13 @@ function XaouShop_BuySpecial(id, quantity, target)
     end
     if selected == nil or XaouShop_GetSpecialDef(selected) == nil then return false, "ITEM_NOT_FOUND" end
 
-    local isBuilding = tostring(selected.kind or "item") == "building"
-    if isBuilding and quantity ~= 1 then return false, "BUILDING_ONE_AT_A_TIME" end
+    local selectedKind = tostring(selected.kind or "item")
+    local isBuilding = selectedKind == "building"
+    local isGong = selectedKind == "gong"
+    if (isBuilding or isGong) and quantity ~= 1 then return false, "ONE_AT_A_TIME" end
     local grantId = selected.grantId and tostring(selected.grantId) or id
-    if not isBuilding and XaouShop_GetDef(grantId) == nil then return false, "ITEM_NOT_FOUND" end
+    if not isBuilding and not isGong and XaouShop_GetDef(grantId) == nil then return false, "ITEM_NOT_FOUND" end
+    if isGong and XaouShop_IsGongUnlocked(selected.gongId or id) then return false, "ALREADY_UNLOCKED" end
 
     local bought = ensure_special_bought()
     local limit = math.max(1, math.floor(tonumber(selected.limit) or 1))
@@ -541,7 +660,15 @@ function XaouShop_BuySpecial(id, quantity, target)
     local total = price * quantity
     local paid, payError = deduct_currency(total, target)
     if not paid then return false, payError end
-    if not isBuilding then
+    local gongInstallDetail = nil
+    if isGong then
+        local installed, installDetail = XaouShop_UnlockGong(selected.gongId or id)
+        if not installed then
+            drop_item("Item_LingStone", total, target)
+            return false, installDetail or "UNLOCK_GONG_FAILED"
+        end
+        gongInstallDetail = installDetail
+    elseif not isBuilding then
         local spawned, spawnError = drop_item(grantId, quantity, target)
         if not spawned then
             drop_item("Item_LingStone", total, target)
@@ -549,12 +676,12 @@ function XaouShop_BuySpecial(id, quantity, target)
         end
     end
     bought[id] = used + quantity
-    return true, {id=id, quantity=quantity, total=total, stock=limit - bought[id]}
+    return true, {id=id, kind=selectedKind, quantity=quantity, total=total, stock=limit - bought[id], install=gongInstallDetail}
 end
 
 function XaouShop_Sell(id, quantity, target)
     id = id and tostring(id) or ""
-    quantity = math.max(1, math.min(10, math.floor(tonumber(quantity) or 1)))
+    quantity = math.max(1, math.floor(tonumber(quantity) or 1))
     if id == "" or id == "Item_LingStone" then return false, "ITEM_NOT_SELLABLE" end
 
     local available, unitPrice = 0, nil
@@ -606,7 +733,7 @@ function XaouShop_BackpackWithdraw(id, quantity, target)
 end
 
 function XaouShop_ExportState()
-    local result = {day=tonumber(XaouShop_State.day) or -1, items={}, backpack={}, specialBought={}, specialMonth=tonumber(XaouShop_State.specialMonth) or -1, login=XaouShop_State.login, poolVersion=SHOP_POOL_VERSION}
+    local result = {day=tonumber(XaouShop_State.day) or -1, items={}, backpack={}, specialBought={}, specialMonth=tonumber(XaouShop_State.specialMonth) or -1, login=XaouShop_State.login, membership=XaouShop_State.membership, language=XaouShop_GetLanguage and XaouShop_GetLanguage() or XaouShop_State.language or "TH", poolVersion=SHOP_POOL_VERSION}
     for _, row in ipairs(XaouShop_State.items or {}) do
         result.items[#result.items + 1] = {id=tostring(row.id), stock=tonumber(row.stock) or 0, price=tonumber(row.price) or 1}
     end
@@ -621,10 +748,11 @@ end
 
 function XaouShop_ImportState(data)
     if type(data) ~= "table" or type(data.items) ~= "table" then
-        XaouShop_State = {day=-1, items={}, backpack={}, specialBought={}, specialMonth=-1}
+        XaouShop_State = {day=-1, items={}, backpack={}, specialBought={}, specialMonth=-1, membership={level=1}, language=XaouShop_Language or "TH"}
         return false
     end
-    XaouShop_State = {day=tonumber(data.day) or -1, items={}, backpack={}, specialBought={}, specialMonth=tonumber(data.specialMonth) or -1, login=type(data.login) == "table" and data.login or nil, poolVersion=tonumber(data.poolVersion)}
+    XaouShop_State = {day=tonumber(data.day) or -1, items={}, backpack={}, specialBought={}, specialMonth=tonumber(data.specialMonth) or -1, login=type(data.login) == "table" and data.login or nil, membership=type(data.membership) == "table" and data.membership or {level=1}, language=tostring(data.language or XaouShop_Language or "TH"), poolVersion=tonumber(data.poolVersion)}
+    if XaouShop_SetLanguage then XaouShop_SetLanguage(XaouShop_State.language) end
     for _, row in ipairs(data.items) do
         if row.id ~= nil and XaouShop_GetDef(row.id) ~= nil then
             XaouShop_State.items[#XaouShop_State.items + 1] = {

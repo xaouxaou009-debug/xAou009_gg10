@@ -1,0 +1,11 @@
+<Modifiers><List>
+	<Modifier Name="XaouBodhi_AutoSkillSlots" Type="Normal">
+		<DisplayName>Xaou 009 Bodhi Auto Skill Slots</DisplayName>
+		<MaxStack>1</MaxStack>
+		<Duration>-1</Duration>
+		<Display>0</Display>
+		<Properties>
+			<li Name="NpcFight_FightSkillSoul" AddV="3"/>
+		</Properties>
+	</Modifier>
+</List></Modifiers>
