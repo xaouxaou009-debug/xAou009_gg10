@@ -15,6 +15,21 @@ local function cs_get(list, index)
     return value
 end
 
+local function safe_int(value)
+    if value == nil then return nil end
+    if type(value) == "number" then return math.floor(value) end
+    local number = nil
+    pcall(function() number = tonumber(value) end)
+    if number ~= nil then return math.floor(number) end
+    local raw = nil
+    pcall(function() raw = tostring(value) end)
+    if raw ~= nil then
+        number = tonumber(raw)
+        if number == nil then number = tonumber(string.match(raw, "-?%d+")) end
+    end
+    return number and math.floor(number) or nil
+end
+
 local function each_dictionary(dict, callback)
     if dict == nil or callback == nil then return end
     local enumerator = nil
@@ -108,7 +123,7 @@ local function add_story_rows(rows, errors)
         local data = cs_get(list, index)
         if data ~= nil then
             local id, def = nil, nil
-            pcall(function() id = tonumber(data.ID) end)
+            pcall(function() id = safe_int(data.ID) end)
             if id ~= nil then pcall(function() def = mgr:GetSecretDef(id) end) end
             local title = nil
             local desc = nil
@@ -142,17 +157,34 @@ local function add_tutorial_rows(rows, errors)
         return
     end
     each_dictionary(tasks, function(key, value)
-        local id = tonumber(key)
+        local id = safe_int(key)
         local title = cs_get(value, 0)
         local desc = cs_get(value, 1)
         local finished = false
         if id ~= nil then pcall(function() finished = mgr:CheckTask(id) == true end) end
+        local tutorial_enabled = false
+        local tutorial_level = 0
+        pcall(function() tutorial_enabled = CS.XiaWorld.World.Instance.NewBee == true end)
+        pcall(function() tutorial_level = safe_int(mgr:GetLevel()) or 0 end)
+        local task_level = id and math.floor(id / 10) or 0
+        local status = "inactive"
+        local objective = "ระบบบทสอนไม่ได้เปิดในเซฟนี้"
+        if finished then
+            status = "completed"
+            objective = "ทำสำเร็จแล้ว"
+        elseif tutorial_enabled and task_level <= tutorial_level then
+            status = "active"
+            objective = "ทำตามคำแนะนำของเกม"
+        elseif tutorial_enabled then
+            status = "locked"
+            objective = "ทำบทสอนช่วงก่อนหน้าให้สำเร็จก่อน"
+        end
         rows[#rows + 1] = {
             id="native_tutorial_" .. tostring(id or key), category="tutorial",
-            status=finished and "completed" or "active",
+            status=status,
             title=string_value(title, "บทสอน #" .. tostring(id or key)),
             desc=string_value(desc, "ภารกิจแนะนำระบบของเกม"),
-            objective=finished and "ทำสำเร็จแล้ว" or "ทำตามคำแนะนำของเกม",
+            objective=objective,
             reward="-", native=true, source="TeachMgr.Tasks",
         }
     end)
@@ -166,7 +198,7 @@ local function add_available_school_tasks(rows, task_mgr, trade_mgr)
         if data ~= nil then
             local task_name, from_school, def = nil, nil, nil
             pcall(function() task_name = data.TaskName end)
-            pcall(function() from_school = tonumber(data.FromSchool) end)
+            pcall(function() from_school = safe_int(data.FromSchool) end)
             if task_name ~= nil then pcall(function() def = trade_mgr:GetTaskDef(task_name) end) end
             local title, desc = nil, nil
             pcall(function() title = def and def.DisplayName end)
@@ -192,9 +224,9 @@ local function add_active_school_tasks(rows, task_mgr, trade_mgr)
     for school_index = 0, cs_count(school_ids) - 1 do
         local school_id = cs_get(school_ids, school_index)
         local school_data = nil
-        pcall(function() school_data = task_mgr:GetSchoolData(tonumber(school_id)) end)
+        pcall(function() school_data = task_mgr:GetSchoolData(safe_int(school_id)) end)
         if school_data == nil then
-            pcall(function() school_data = task_mgr:GetSchoolData(tonumber(school_id), false) end)
+            pcall(function() school_data = task_mgr:GetSchoolData(safe_int(school_id), false) end)
         end
         local tasks = nil
         pcall(function() tasks = school_data and school_data.taskDatas end)

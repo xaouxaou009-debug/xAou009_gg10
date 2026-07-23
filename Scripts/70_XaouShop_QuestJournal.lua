@@ -150,6 +150,8 @@ local function status_label(row)
     if row.status == "available" then return tr("รับได้", "Available") end
     if row.status == "active" then return tr("กำลังทำ", "Active") end
     if row.status == "ready" then return tr("รับรางวัล", "Claim") end
+    if row.status == "locked" then return tr("ล็อกอยู่", "Locked") end
+    if row.status == "inactive" then return tr("ไม่ได้เปิดบทสอน", "Tutorial disabled") end
     return tr("สำเร็จแล้ว", "Completed")
 end
 
