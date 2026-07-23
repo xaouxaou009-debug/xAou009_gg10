@@ -1,9 +1,20 @@
 -- Shared RPG-style backpack window for Xaou 009.
 
-local XBAG_View, XBAG_Target = nil, nil
+local XBAG_View, XBAG_CategoryView, XBAG_Target = nil, nil, nil
 local XBAG_Mode, XBAG_Rows = "bag", {}
 local XBAG_Selected, XBAG_Page, XBAG_Quantity = 1, 1, 1
 local XBAG_Busy, XBAG_Status, XBAG_StatusKind = false, nil, nil
+local XBAG_Category = "all"
+
+local XBAG_Categories = {
+    {id="all", button="catAll", th="ทั้งหมด", en="All"},
+    {id="food", button="catFood", th="อาหาร", en="Food"},
+    {id="medicine", button="catMedicine", th="ยาและโอสถ", en="Medicine"},
+    {id="practice", button="catPractice", th="ของบ่มเพาะ", en="Cultivation"},
+    {id="material", button="catMaterial", th="วัตถุดิบ", en="Materials"},
+    {id="equipment", button="catEquipment", th="อุปกรณ์", en="Equipment"},
+    {id="other", button="catOther", th="อื่น ๆ", en="Other"},
+}
 
 local function child(obj, name)
     if obj == nil then return nil end
@@ -46,9 +57,58 @@ local function def_info(id)
     return info
 end
 
+local function is_english()
+    return XaouShop_GetLanguage ~= nil and XaouShop_GetLanguage() == "EN"
+end
+
+local function category_label(category)
+    for _, row in ipairs(XBAG_Categories) do
+        if row.id == tostring(category or "all") then return is_english() and row.en or row.th end
+    end
+    return is_english() and "All" or "ทั้งหมด"
+end
+
+local function item_category(id)
+    id = tostring(id or "")
+    local def = XaouShop_GetDef and XaouShop_GetDef(id) or nil
+    local itemData, label = nil, 0
+    pcall(function()
+        itemData = def.Item
+        label = tonumber(itemData.Lable) or 0
+    end)
+
+    local remoteItem = nil
+    pcall(function() remoteItem = Map.SpaceRing:FindItem(id, nil, 0, 9999, nil) end)
+    if remoteItem == nil then
+        pcall(function() remoteItem = CS.XiaWorld.World.Instance.map.SpaceRing:FindItem(id, nil, 0, 9999, nil) end)
+    end
+    local function has_tag(name)
+        local value = 0
+        pcall(function() value = tonumber(remoteItem.TagData:CheckTag(name)) or 0 end)
+        return value > 0
+    end
+
+    if has_tag("PracticeFood") then return "practice" end
+    if label == 20 or label == 21 or string.find(string.lower(id), "drug", 1, true) then return "medicine" end
+    local food = nil
+    pcall(function() food = itemData.Food end)
+    if label == 19 or food ~= nil or has_tag("Food") or has_tag("DiscipleFood") then return "food" end
+    if (label >= 1 and label <= 12) or label == 24 or label == 26 or label == 27 or label == 28 then return "material" end
+    if (label >= 13 and label <= 18) or label == 23 or label == 35 then return "equipment" end
+    return "other"
+end
+
 local function refresh_rows()
-    if XBAG_Mode == "map" then XBAG_Rows = XaouShop_GetMapItems and XaouShop_GetMapItems() or {}
-    else XBAG_Rows = XaouShop_GetBackpackItems and XaouShop_GetBackpackItems() or {} end
+    local source = nil
+    if XBAG_Mode == "map" then source = XaouShop_GetMapItems and XaouShop_GetMapItems() or {}
+    else source = XaouShop_GetBackpackItems and XaouShop_GetBackpackItems() or {} end
+    XBAG_Rows = {}
+    for _, row in ipairs(source) do
+        row.category = item_category(row.id)
+        if XBAG_Category == "all" or row.category == XBAG_Category then
+            XBAG_Rows[#XBAG_Rows + 1] = row
+        end
+    end
 end
 
 local function selected_row()
@@ -71,6 +131,11 @@ local function set_status(text, kind)
 end
 
 function XaouBackpack_CloseWindow()
+    if XBAG_CategoryView ~= nil then
+        pcall(function() XBAG_CategoryView:RemoveFromParent() end)
+        pcall(function() XBAG_CategoryView:Dispose() end)
+        XBAG_CategoryView = nil
+    end
     if XBAG_View ~= nil then
         pcall(function() XBAG_View:RemoveFromParent() end)
         pcall(function() XBAG_View:Dispose() end)
@@ -111,6 +176,7 @@ local function refresh(view)
     set_text(child(view, "title"), "กระเป๋า Xaou 009")
     set_text(child(view, "subtitle"), "จัดเก็บและนำสิ่งของออกใกล้ NPC ที่เลือก")
     set_text(child(view, "btnClose"), "×")
+    set_text(child(view, "btnCategory"), (is_english() and "Category: " or "หมวด: ") .. category_label(XBAG_Category))
     set_text(child(view, "btnBagMode"), XBAG_Mode == "bag" and "▶ ในกระเป๋า" or "ในกระเป๋า")
     set_text(child(view, "btnMapMode"), XBAG_Mode == "map" and "▶ บนแผนที่" or "บนแผนที่")
     set_text(child(view, "modeText"), XBAG_Mode == "bag" and "สิ่งของในกระเป๋า" or "ไอเทมบนแผนที่")
@@ -147,7 +213,7 @@ local function refresh(view)
 
     local status = XBAG_Status
     if status == nil or status == "" then
-        status = XBAG_Mode == "bag" and "เลือกของในกระเป๋าเพื่อนำออกใกล้ NPC" or "แสดงเฉพาะไอเทมซ้อนได้ที่อยู่บนแผนที่จริง"
+        status = XBAG_Mode == "bag" and "เลือกของในกระเป๋าเพื่อนำออกใกล้ NPC" or "เลือกไอเทมบนแผนที่เพื่อเก็บเข้ากระเป๋า"
     end
     set_text(child(view, "status"), status)
     local statusField = child(view, "status")
@@ -159,6 +225,60 @@ local function refresh(view)
         end)
     end
     refresh_detail(view)
+end
+
+local function close_category_window()
+    if XBAG_CategoryView ~= nil then
+        pcall(function() XBAG_CategoryView:RemoveFromParent() end)
+        pcall(function() XBAG_CategoryView:Dispose() end)
+        XBAG_CategoryView = nil
+    end
+end
+
+local function open_category_window(view)
+    close_category_window()
+    local pkg = UIPackage or (CS.FairyGUI and CS.FairyGUI.UIPackage)
+    local root = (GRoot and GRoot.inst) or (CS.FairyGUI and CS.FairyGUI.GRoot.inst)
+    if pkg == nil or root == nil then
+        set_status(is_english() and "Category window is unavailable" or "ไม่พบหน้าต่างหมวดหมู่", "error")
+        refresh(view)
+        return
+    end
+
+    local categoryView = nil
+    local ok, err = pcall(function() categoryView = pkg.CreateObject("XaouShop", "BackpackCategoryWindow") end)
+    if not ok or categoryView == nil then
+        set_status((is_english() and "Cannot open category window: " or "เปิดหน้าต่างหมวดหมู่ไม่ได้: ") .. tostring(err), "error")
+        refresh(view)
+        return
+    end
+    XBAG_CategoryView = categoryView
+    root:AddChild(categoryView)
+    categoryView.x = (root.width - categoryView.width) / 2
+    categoryView.y = (root.height - categoryView.height) / 2
+
+    set_text(child(categoryView, "title"), is_english() and "Select Category" or "เลือกหมวดหมู่")
+    set_text(child(categoryView, "subtitle"), is_english() and "Filter items in the backpack and on the map" or "กรองสิ่งของในกระเป๋าและบนแผนที่")
+    set_text(child(categoryView, "hint"), is_english() and "Choose a category to return to the backpack" or "เลือกหนึ่งหมวดเพื่อกลับไปยังหน้ากระเป๋า")
+    set_text(child(categoryView, "btnClose"), "×")
+    for _, row in ipairs(XBAG_Categories) do
+        local selected = row
+        local button = child(categoryView, row.button)
+        set_text(button, (XBAG_Category == row.id and "▶ " or "") .. (is_english() and row.en or row.th))
+        if button ~= nil then button.onClick:Add(function()
+            XBAG_Category, XBAG_Page, XBAG_Selected, XBAG_Quantity = selected.id, 1, 1, 1
+            close_category_window()
+            set_status(nil, nil)
+            refresh(view)
+            pcall(function() view:BringToFront() end)
+        end) end
+    end
+    local close = child(categoryView, "btnClose")
+    if close ~= nil then close.onClick:Add(function()
+        close_category_window()
+        pcall(function() view:BringToFront() end)
+    end) end
+    pcall(function() categoryView:BringToFront() end)
 end
 
 function XaouBackpack_RefreshWindow()
@@ -194,7 +314,7 @@ end
 
 function XaouBackpack_OpenWindow(target)
     XaouBackpack_CloseWindow()
-    XBAG_Target, XBAG_Mode, XBAG_Page = target, "bag", 1
+    XBAG_Target, XBAG_Mode, XBAG_Page, XBAG_Category = target, "bag", 1, "all"
     XBAG_Selected, XBAG_Quantity, XBAG_Busy = 1, 1, false
     set_status(nil, nil)
 
@@ -235,6 +355,8 @@ function XaouBackpack_OpenWindow(target)
         XBAG_Mode, XBAG_Page, XBAG_Selected, XBAG_Quantity = "map", 1, 1, 1
         set_status(nil, nil); refresh(view)
     end) end
+    local category = child(view, "btnCategory")
+    if category ~= nil then category.onClick:Add(function() open_category_window(view) end) end
     local prev = child(view, "btnPrev")
     if prev ~= nil then prev.onClick:Add(function()
         if XBAG_Page > 1 then XBAG_Page = XBAG_Page - 1; XBAG_Selected = (XBAG_Page - 1) * 10 + 1; refresh(view) end

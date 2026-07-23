@@ -34,7 +34,7 @@ local REPLACE_EN = {
     {"ของพิเศษแบบคงที่ โควตารีเซ็ตทุกเดือนในเกม", "Fixed special stock. Purchase limits reset every in-game month."},
     {"ซื้อได้ธาตุละ 50 ชิ้น โควตารีเซ็ตทุก 28 วันเกม", "Up to 50 per element. Limits reset every 28 in-game days."},
     {"จัดเก็บและนำสิ่งของออกใกล้ NPC ที่เลือก", "Store items or withdraw them near the selected NPC."},
-    {"แสดงเฉพาะไอเทมซ้อนได้ที่อยู่บนแผนที่จริง", "Shows stackable items currently present on the map."},
+    {"เลือกไอเทมบนแผนที่เพื่อเก็บเข้ากระเป๋า", "Select a map item to store in the backpack."},
     {"เลือกของในกระเป๋าเพื่อนำออกใกล้ NPC", "Select an item to withdraw near the NPC."},
     {"รางวัล 7 วันตามระดับสมาชิก ของหายากมีจำนวนลดลงและออกในวันท้าย ๆ", "Seven-day rewards scale with membership. Rare rewards appear later in smaller amounts."},
     {"พลาดวันใดจะรับย้อนหลังไม่ได้ • ระดับสมาชิกและวัตถุดิบผูกกับเซฟนี้", "Missed days cannot be reclaimed. Membership and materials are tied to this save."},

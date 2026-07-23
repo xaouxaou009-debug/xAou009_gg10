@@ -200,10 +200,13 @@ end
 
 local function is_backpack_safe_item(item)
     if not is_real_map_item(item) then return false end
-    local def = XaouShop_GetDef(item_def_name(item))
-    local maxStack = nil
-    if def ~= nil then pcall(function() maxStack = tonumber(def.MaxStack) end) end
-    return maxStack ~= nil and maxStack > 1
+    local id = item_def_name(item)
+    local def = XaouShop_GetDef(id)
+    -- Xaou Backpack intentionally accepts every real Item Thing, including
+    -- weapons, artifacts, clothing and equipment not registered by the
+    -- original RemoteStorage. RemoteStorage stores only def ID and count, so
+    -- withdrawing unique equipment creates a fresh item of the same def.
+    return def ~= nil
 end
 
 local function item_list()
@@ -361,11 +364,111 @@ local function ensure_backpack()
     return XaouShop_State.backpack
 end
 
-function XaouShop_GetBackpackItems()
-    local result = {}
-    for id, amount in pairs(ensure_backpack()) do
+local function ensure_backpack_known()
+    XaouShop_State = XaouShop_State or {day=-1, items={}, backpack={}}
+    XaouShop_State.backpackKnown = XaouShop_State.backpackKnown or {}
+    return XaouShop_State.backpackKnown
+end
+
+local function space_ring()
+    local map = nil
+    pcall(function() map = Map end)
+    if map == nil then pcall(function() map = CS.XiaWorld.World.Instance.map end) end
+    if map == nil then return nil, nil end
+    local ring = nil
+    pcall(function() ring = map.SpaceRing end)
+    return map, ring
+end
+
+local function ring_count(id)
+    local _, ring = space_ring()
+    if ring == nil then return 0 end
+    local value = 0
+    pcall(function() value = tonumber(ring:GetItemCount(tostring(id))) or 0 end)
+    return math.max(0, math.floor(value))
+end
+
+local function ring_add(id, amount)
+    id = tostring(id or "")
+    amount = math.floor(tonumber(amount) or 0)
+    if id == "" or amount == 0 then return false, "INVALID_AMOUNT" end
+    local _, ring = space_ring()
+    if ring == nil then return false, "SPACE_RING_NOT_READY" end
+    local before = ring_count(id)
+    local ok, err = pcall(function() ring:AddStorage(id, amount, false) end)
+    local after = ring_count(id)
+    if ok and after == math.max(0, before + amount) then
+        ensure_backpack_known()[id] = true
+        return true, after
+    end
+    return false, tostring(err or "SPACE_RING_COUNT_UNCHANGED")
+end
+
+-- Old releases stored backpack quantities in Lua. Move them once into the
+-- game's RemoteStorage so normal NPC jobs can discover and consume them.
+function XaouShop_EnsureSmartBackpack()
+    local _, ring = space_ring()
+    if ring == nil then return false, "SPACE_RING_NOT_READY" end
+    local legacy = ensure_backpack()
+    local pending = {}
+    for id, amount in pairs(legacy) do
         amount = math.max(0, math.floor(tonumber(amount) or 0))
-        if amount > 0 and XaouShop_GetDef(id) ~= nil then result[#result + 1] = {id=tostring(id), count=amount} end
+        if amount > 0 and XaouShop_GetDef(id) ~= nil then
+            pending[#pending + 1] = {id=tostring(id), amount=amount}
+        end
+    end
+    for _, row in ipairs(pending) do
+        local ok = ring_add(row.id, row.amount)
+        if ok then legacy[row.id] = nil end
+    end
+    XaouShop_State.backpackRemoteVersion = 1
+    return true
+end
+
+function XaouShop_GetBackpackItems()
+    pcall(XaouShop_EnsureSmartBackpack)
+    local result, seen = {}, {}
+    local _, ring = space_ring()
+    if ring ~= nil then
+        pcall(function()
+            ring:ForeachItemInStorage(function(id, amount)
+                id = tostring(id or "")
+                amount = math.max(0, math.floor(tonumber(amount) or 0))
+                if id ~= "" and amount > 0 and XaouShop_GetDef(id) ~= nil then
+                    seen[id] = true
+                    ensure_backpack_known()[id] = true
+                    result[#result + 1] = {id=id, count=amount}
+                end
+            end)
+        end)
+    end
+    if ring ~= nil then
+        pcall(function()
+            local remote = CS.XiaWorld.ThingMgr.RemoteItemType
+            local iterator = remote.Keys:GetEnumerator()
+            while iterator:MoveNext() do
+                local id = tostring(iterator.Current or "")
+                if id ~= "" and seen[id] ~= true then
+                    local amount = ring_count(id)
+                    if amount > 0 and XaouShop_GetDef(id) ~= nil then
+                        seen[id] = true
+                        ensure_backpack_known()[id] = true
+                        result[#result + 1] = {id=id, count=amount}
+                    end
+                end
+            end
+        end)
+    end
+    -- Some Mobile XLua builds cannot marshal Action<string,int>. Known IDs
+    -- keep the UI usable through direct GetItemCount calls in that case.
+    for id in pairs(ensure_backpack_known()) do
+        id = tostring(id)
+        if seen[id] ~= true then
+            local amount = ring_count(id)
+            if amount > 0 and XaouShop_GetDef(id) ~= nil then
+                result[#result + 1] = {id=id, count=amount}
+            end
+        end
     end
     table.sort(result, function(a, b) return tostring(a.id) < tostring(b.id) end)
     return result
@@ -550,8 +653,9 @@ function XaouShop_Generate(day)
     local specialBought = XaouShop_State and XaouShop_State.specialBought or {}
     local specialMonth = XaouShop_State and XaouShop_State.specialMonth or -1
     local membership = XaouShop_State and XaouShop_State.membership or {level=1}
+    local quests = XaouShop_State and XaouShop_State.quests or nil
     local language = XaouShop_State and XaouShop_State.language or XaouShop_Language or "TH"
-    XaouShop_State = {day=day, items=generated, backpack=backpack, login=login, specialBought=specialBought, specialMonth=specialMonth, membership=membership, language=language, poolVersion=SHOP_POOL_VERSION}
+    XaouShop_State = {day=day, items=generated, backpack=backpack, login=login, specialBought=specialBought, specialMonth=specialMonth, membership=membership, quests=quests, language=language, poolVersion=SHOP_POOL_VERSION}
     if XaouShop_RefreshWindow then pcall(XaouShop_RefreshWindow) end
     return #generated
 end
@@ -712,34 +816,43 @@ function XaouShop_BackpackDeposit(id, quantity, target)
         if row.id == id then available = row.count; break end
     end
     if available < quantity then return false, "NOT_ENOUGH_ITEMS" end
+
+    local added, addResult = ring_add(id, quantity)
+    if not added then return false, addResult end
     local removed, removeError = remove_items_by_id(id, quantity, target)
-    if not removed then return false, removeError end
-    local bag = ensure_backpack()
-    bag[id] = math.max(0, math.floor(tonumber(bag[id]) or 0)) + quantity
-    return true, {id=id, quantity=quantity, count=bag[id]}
+    if not removed then
+        ring_add(id, -quantity)
+        return false, removeError
+    end
+    return true, {id=id, quantity=quantity, count=ring_count(id), smart=true}
 end
 
 function XaouShop_BackpackWithdraw(id, quantity, target)
     id = id and tostring(id) or ""
     quantity = math.max(1, math.floor(tonumber(quantity) or 1))
-    local bag = ensure_backpack()
-    local available = math.max(0, math.floor(tonumber(bag[id]) or 0))
+    pcall(XaouShop_EnsureSmartBackpack)
+    local available = ring_count(id)
     if id == "" or available < quantity then return false, "NOT_ENOUGH_ITEMS" end
+
+    local removed, removeError = ring_add(id, -quantity)
+    if not removed then return false, removeError end
     local spawned, spawnError = drop_item(id, quantity, target)
-    if not spawned then return false, "SPAWN_FAILED: " .. tostring(spawnError) end
-    bag[id] = available - quantity
-    if bag[id] <= 0 then bag[id] = nil end
-    return true, {id=id, quantity=quantity, count=math.max(0, bag[id] or 0)}
+    if not spawned then
+        ring_add(id, quantity)
+        return false, "SPAWN_FAILED: " .. tostring(spawnError)
+    end
+    return true, {id=id, quantity=quantity, count=ring_count(id), smart=true}
 end
 
 function XaouShop_ExportState()
-    local result = {day=tonumber(XaouShop_State.day) or -1, items={}, backpack={}, specialBought={}, specialMonth=tonumber(XaouShop_State.specialMonth) or -1, login=XaouShop_State.login, membership=XaouShop_State.membership, language=XaouShop_GetLanguage and XaouShop_GetLanguage() or XaouShop_State.language or "TH", poolVersion=SHOP_POOL_VERSION}
+    local result = {day=tonumber(XaouShop_State.day) or -1, items={}, backpack={}, backpackKnown={}, backpackRemoteVersion=tonumber(XaouShop_State.backpackRemoteVersion) or 0, specialBought={}, specialMonth=tonumber(XaouShop_State.specialMonth) or -1, login=XaouShop_State.login, membership=XaouShop_State.membership, quests=XaouShop_State.quests, language=XaouShop_GetLanguage and XaouShop_GetLanguage() or XaouShop_State.language or "TH", poolVersion=SHOP_POOL_VERSION}
     for _, row in ipairs(XaouShop_State.items or {}) do
         result.items[#result.items + 1] = {id=tostring(row.id), stock=tonumber(row.stock) or 0, price=tonumber(row.price) or 1}
     end
     for id, amount in pairs(ensure_backpack()) do
         if tonumber(amount) and tonumber(amount) > 0 then result.backpack[tostring(id)] = math.floor(tonumber(amount)) end
     end
+    for id in pairs(ensure_backpack_known()) do result.backpackKnown[tostring(id)] = true end
     for id, amount in pairs(ensure_special_bought()) do
         if tonumber(amount) and tonumber(amount) > 0 then result.specialBought[tostring(id)] = math.floor(tonumber(amount)) end
     end
@@ -751,7 +864,7 @@ function XaouShop_ImportState(data)
         XaouShop_State = {day=-1, items={}, backpack={}, specialBought={}, specialMonth=-1, membership={level=1}, language=XaouShop_Language or "TH"}
         return false
     end
-    XaouShop_State = {day=tonumber(data.day) or -1, items={}, backpack={}, specialBought={}, specialMonth=tonumber(data.specialMonth) or -1, login=type(data.login) == "table" and data.login or nil, membership=type(data.membership) == "table" and data.membership or {level=1}, language=tostring(data.language or XaouShop_Language or "TH"), poolVersion=tonumber(data.poolVersion)}
+    XaouShop_State = {day=tonumber(data.day) or -1, items={}, backpack={}, backpackKnown={}, backpackRemoteVersion=tonumber(data.backpackRemoteVersion) or 0, specialBought={}, specialMonth=tonumber(data.specialMonth) or -1, login=type(data.login) == "table" and data.login or nil, membership=type(data.membership) == "table" and data.membership or {level=1}, quests=type(data.quests) == "table" and data.quests or nil, language=tostring(data.language or XaouShop_Language or "TH"), poolVersion=tonumber(data.poolVersion)}
     if XaouShop_SetLanguage then XaouShop_SetLanguage(XaouShop_State.language) end
     for _, row in ipairs(data.items) do
         if row.id ~= nil and XaouShop_GetDef(row.id) ~= nil then
@@ -765,6 +878,11 @@ function XaouShop_ImportState(data)
             if XaouShop_GetDef(id) ~= nil and tonumber(amount) and tonumber(amount) > 0 then
                 XaouShop_State.backpack[tostring(id)] = math.floor(tonumber(amount))
             end
+        end
+    end
+    if type(data.backpackKnown) == "table" then
+        for id, value in pairs(data.backpackKnown) do
+            if value == true and XaouShop_GetDef(id) ~= nil then XaouShop_State.backpackKnown[tostring(id)] = true end
         end
     end
     if type(data.specialBought) == "table" then
