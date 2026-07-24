@@ -214,7 +214,7 @@ local function transact(view)
         if reason == "NOT_ENOUGH" then reason = "หินวิญญาณไม่เพียงพอ"
         elseif reason == "OUT_OF_STOCK" then reason = "สินค้าเหลือไม่พอ"
         elseif reason == "ITEM_NOT_FOUND" then reason = "ไม่พบสินค้า"
-        elseif reason == "REMOVE_FAILED" or reason == "REMOVE_INCOMPLETE" then reason = "หักหินวิญญาณไม่สำเร็จ"
+        elseif reason == "REMOVE_FAILED" or reason == "REMOVE_INCOMPLETE" or reason == "BACKPACK_REMOVE_FAILED" then reason = "หักหินวิญญาณจากกระเป๋าหรือแผนที่ไม่สำเร็จ"
         elseif reason == "NOT_ENOUGH_ITEMS" then reason = "ของที่เลือกมีไม่เพียงพอ"
         elseif reason == "ITEM_NOT_SELLABLE" then reason = "ไอเทมนี้ไม่สามารถขายได้"
         end

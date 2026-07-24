@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ThingDefs><List>
+  <ThingDef Type="Item" Name="Item_Xaou_MindStatePill" Parent="DanBase">
+    <ThingName>โอสถหล่อเลี้ยงจิต Xaou</ThingName>
+    <TexPath>res\Sprs\object\object_XIAOdanyao07</TexPath>
+    <Desc>โอสถสูตรพิเศษของ Xaou เพิ่มสภาวะจิต 200 เติมสภาวะจิตให้เต็มทันที และป้องกันสภาวะจิตลดลงเป็นเวลา 5 วัน โดยไม่เพิ่มการต้านโอสถ</Desc>
+    <Rate>8</Rate>
+    <Beauty>8</Beauty>
+    <ElementKind>Shui</ElementKind>
+    <IllustratedHandLabel>Dan</IllustratedHandLabel>
+    <Item Lable="Dan">
+      <NotRandom>1</NotRandom>
+      <Prices>
+        <TalkType>2</TalkType>
+        <BaseCount>1</BaseCount>
+        <li PriceTag="School"><BuyPrice Value="350"/><SalePrice Value="70"/></li>
+        <li PriceTag="Trade"><BuyPrice Value="350"/><SalePrice Value="70"/></li>
+        <li PriceTag="Auction"><BuyPrice Value="350"/><SalePrice Value="0"/></li>
+      </Prices>
+      <PhysicalLables>
+        <li>Smooth1</li>
+        <li>Hard1</li>
+        <li>Light1</li>
+      </PhysicalLables>
+      <Elixir>
+        <Modifier>Modifier_Xaou_MindStatePill</Modifier>
+        <Fesistance>1</Fesistance>
+        <Script>if me ~= nil and me.npcObj ~= nil then local npc = me.npcObj; if npc.ElixirFesistance ~= nil and it ~= nil and it.def ~= nil then pcall(function() npc.ElixirFesistance:set_Item(it.def.Name, 1) end) end; pcall(function() me:RemoveModifier("Modifier_Xaou_MindStatePill") end); pcall(function() me:AddModifier("Modifier_Xaou_MindStatePill") end); if npc.Needs ~= nil then npc.Needs:AddNeedValue(CS.XiaWorld.g_emNeedType.MindState, 999999) end end</Script>
+      </Elixir>
+    </Item>
+    <Element>
+      <Kind>Shui</Kind>
+      <Value>3</Value>
+    </Element>
+    <Tags>
+      <Tag Name="Dan_CalmDown" Level="3"/>
+    </Tags>
+  </ThingDef>
+</List></ThingDefs>

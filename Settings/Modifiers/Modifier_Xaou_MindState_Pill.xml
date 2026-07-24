@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModifierDefs><List>
+  <Modifier Name="Modifier_Xaou_MindStatePill" Type="Normal">
+    <DisplayName>โอสถหล่อเลี้ยงจิต Xaou</DisplayName>
+    <Desc>สภาวะจิตเพิ่มขึ้น 200 และไม่ลดลงเป็นเวลา 5 วัน</Desc>
+    <MaxStack>1</MaxStack>
+    <Duration>3000</Duration>
+    <Display>1</Display>
+    <Sync>1</Sync>
+    <Properties>
+      <li Name="MindStateBaseValue" AddV="200"/>
+      <li Name="SpeedOfMindStateCoefficient" AddP="-1"/>
+    </Properties>
+  </Modifier>
+</List></ModifierDefs>

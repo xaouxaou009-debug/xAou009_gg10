@@ -11,10 +11,10 @@ XaouShop_SpecialCategories = {
 }
 
 XaouShop_SpecialItems = {
-    {id="Xaou_MindStateLevel_Pill", kind="mind_level", category="cultivation", price=5000, limit=3, levels=1,
-        displayName="โอสถยกระดับสภาวะจิต Xaou",
-        description="ซื้อแล้วใช้กับ NPC ที่เลือกทันที เพิ่มระดับสภาวะจิตสายเทพ 1 ระดับ ใช้ได้เฉพาะผู้ฝึกวิชาสายเทพ",
-        icon="res\\Sprs\\object\\object_PINGdanyao04"},
+    {id="Item_Xaou_MindStatePill", category="cultivation", price=350, limit=10,
+        displayName="โอสถหล่อเลี้ยงจิต Xaou",
+        description="เพิ่มสภาวะจิต 200 เป็นเวลา 5 วันเกม ใช้ได้กับตัวละครทั่วไป",
+        icon="res\\Sprs\\object\\object_XIAOdanyao07"},
     {id="Gong_Xaou_009_Bodhi", kind="gong", gongId="Gong_Xaou_009_Bodhi", category="manual", price=5000, limit=1,
         displayName="วิชาโพธิจิตเมตตาแห่ง Xaou",
         description="ซื้อครั้งเดียวเพื่อปลดล็อกวิชาบ่มเพาะให้ทั้งสำนัก เน้นฟื้นปราณหมู่ ช่วยผู้มีปราณต่ำ และสร้างเกราะให้มิตร",

@@ -100,14 +100,13 @@ local function refresh_detail(view)
     local rowKind = tostring(row.kind or "item")
     local isBuilding = rowKind == "building"
     local isGong = rowKind == "gong"
-    local isMindLevel = rowKind == "mind_level"
-    local singleOnly = isBuilding or isGong or isMindLevel
+    local singleOnly = isBuilding or isGong
     if singleOnly then XSPECIAL_Quantity = 1 end
     set_text(child(view, "detailPrice"), "ราคา: " .. tostring(row.price) .. " / ชิ้น  |  รวม " .. tostring(row.price * XSPECIAL_Quantity))
     set_text(child(view, "detailStock"), "สิทธิ์คงเหลือ: " .. tostring(row.stock) .. "/" .. tostring(row.limit))
     set_text(child(view, "qtyLabel"), isBuilding and "ซื้อและวางครั้งละ 1 ชิ้น"
         or (isGong and "ซื้อครั้งเดียว ปลดล็อกให้ทั้งสำนัก"
-        or (isMindLevel and "ใช้กับ NPC ที่เลือกทันที" or ("จำนวน: " .. tostring(XSPECIAL_Quantity)))))
+        or ("จำนวน: " .. tostring(XSPECIAL_Quantity))))
     local icon = child(view, "detailIcon")
     pcall(function() icon.url = info.icon end)
     set_visible(icon, info.icon ~= "")
@@ -190,8 +189,7 @@ local function buy(view)
     local rowKind = tostring(row.kind or "item")
     local isBuilding = rowKind == "building"
     local isGong = rowKind == "gong"
-    local isMindLevel = rowKind == "mind_level"
-    if isBuilding or isGong or isMindLevel then XSPECIAL_Quantity = 1 end
+    if isBuilding or isGong then XSPECIAL_Quantity = 1 end
 
     if isGong then
         XSPECIAL_Busy = true
@@ -208,6 +206,7 @@ local function buy(view)
             elseif reason == "ALREADY_UNLOCKED" then reason = "สำนักปลดล็อกวิชานี้แล้ว"
             elseif reason == "UNLOCK_GONG_FAILED" then reason = "เกมไม่ยอมปลดล็อกวิชา"
             elseif reason == "ITEM_NOT_FOUND" then reason = "ไม่พบข้อมูลวิชา กรุณาตรวจไฟล์ Settings"
+            elseif reason == "BACKPACK_REMOVE_FAILED" or reason == "REMOVE_FAILED" or reason == "REMOVE_INCOMPLETE" then reason = "หักหินวิญญาณจากกระเป๋าหรือแผนที่ไม่สำเร็จ"
             end
             set_status("ปลดล็อกวิชาไม่สำเร็จ: " .. tostring(reason or "ไม่ทราบสาเหตุ"), "error")
         end
@@ -232,20 +231,14 @@ local function buy(view)
             refresh(view)
             return
         end
-        if isMindLevel then
-            set_status("ใช้โอสถสำเร็จ ระดับสภาวะจิตของ NPC เพิ่มขึ้น 1 ระดับ", "success")
-        else
-            set_status("ซื้อ " .. info_for(row.id).name .. " จำนวน " .. tostring(XSPECIAL_Quantity) .. " สำเร็จ", "success")
-        end
+        set_status("ซื้อ " .. info_for(row.id).name .. " จำนวน " .. tostring(XSPECIAL_Quantity) .. " สำเร็จ", "success")
     else
         local reason = detail or result
         if reason == "NOT_ENOUGH" then reason = "หินวิญญาณไม่เพียงพอ"
         elseif reason == "OUT_OF_STOCK" then reason = "ซื้อสินค้านี้ครบจำนวนจำกัดแล้ว"
         elseif reason == "ITEM_NOT_FOUND" then reason = "ไม่พบ Item ID ในเกม"
         elseif reason == "BUILDING_ONE_AT_A_TIME" then reason = "เฟอร์นิเจอร์ซื้อและวางได้ครั้งละ 1 ชิ้น"
-        elseif reason == "NOT_DIVINE_PRACTICE" then reason = "NPC ที่เลือกยังไม่ได้ฝึกวิชาสายเทพ"
-        elseif reason == "MIND_LEVEL_NOT_CHANGED" then reason = "ระดับสภาวะจิตไม่เปลี่ยน อาจถึงระดับสูงสุดแล้ว"
-        elseif reason == "MIND_LEVEL_FAILED" then reason = "เกมไม่ยอมเพิ่มระดับสภาวะจิต" end
+        elseif reason == "BACKPACK_REMOVE_FAILED" or reason == "REMOVE_FAILED" or reason == "REMOVE_INCOMPLETE" then reason = "หักหินวิญญาณจากกระเป๋าหรือแผนที่ไม่สำเร็จ" end
         set_status("ซื้อไม่สำเร็จ: " .. tostring(reason or "ไม่ทราบสาเหตุ"), "error")
     end
     refresh(view)

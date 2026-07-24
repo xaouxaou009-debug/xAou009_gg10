@@ -73,9 +73,6 @@ end
 function XaouShop_GetSpecialDef(entry)
     if entry == nil then return nil end
     local kind = tostring(entry.kind or "item")
-    if kind == "mind_level" then
-        return entry
-    end
     if kind == "gong" then
         local value = nil
         pcall(function()
@@ -87,34 +84,6 @@ function XaouShop_GetSpecialDef(entry)
         return XaouShop_GetBuildingDef(entry.id)
     end
     return XaouShop_GetDef(entry.id)
-end
-
-local function get_god_practice_data(target)
-    if target == nil then return nil, nil end
-    local real = target
-    local data = nil
-    pcall(function() data = real.PropertyMgr.Practice.GodPracticeData end)
-    return data, real
-end
-
-function XaouShop_ApplyMindStateLevel(target, levels)
-    local god, real = get_god_practice_data(target)
-    if god == nil or real == nil then return false, "NOT_DIVINE_PRACTICE" end
-    levels = math.max(1, math.floor(tonumber(levels) or 1))
-    local before = nil
-    pcall(function() before = tonumber(god.MindStateLevel) end)
-    local ok, err = pcall(function()
-        for _ = 1, levels do god:MindStateLevelLevelUp() end
-    end)
-    if not ok then return false, tostring(err) end
-    local after = nil
-    pcall(function() after = tonumber(god.MindStateLevel) end)
-    if before ~= nil and after ~= nil and after <= before then
-        return false, "MIND_LEVEL_NOT_CHANGED"
-    end
-    pcall(function() EventMgr.Instance:EventTrigger(g_emEvent.NpcPropertyChanged, real) end)
-    pcall(function() CS.XiaWorld.EventMgr.Instance:EventTrigger(CS.XiaWorld.g_emEvent.NpcPropertyChanged, real) end)
-    return true, {before=before, after=after, levels=levels}
 end
 
 function XaouShop_IsGongUnlocked(gongId)
@@ -248,6 +217,9 @@ local function item_list()
     return list
 end
 
+local ring_count
+local ring_add
+
 function XaouShop_CountCurrency()
     local total = 0
     local list = item_list()
@@ -257,6 +229,8 @@ function XaouShop_CountCurrency()
             total = total + stack_count(item)
         end
     end
+    if XaouShop_EnsureSmartBackpack ~= nil then pcall(XaouShop_EnsureSmartBackpack) end
+    if ring_count ~= nil then total = total + ring_count("Item_LingStone") end
     return total
 end
 
@@ -316,7 +290,20 @@ end
 local function deduct_currency(amount, target)
     amount = math.max(0, math.floor(tonumber(amount) or 0))
     if XaouShop_CountCurrency() < amount then return false, "NOT_ENOUGH", 0 end
-    local remain, removed = amount, 0
+    local remain, removed, removedFromBag = amount, 0, 0
+
+    if ring_count ~= nil and ring_add ~= nil then
+        local availableInBag = ring_count("Item_LingStone")
+        local takeFromBag = math.min(remain, availableInBag)
+        if takeFromBag > 0 then
+            local ok = ring_add("Item_LingStone", -takeFromBag)
+            if not ok then return false, "BACKPACK_REMOVE_FAILED", 0 end
+            removedFromBag = takeFromBag
+            removed = removed + takeFromBag
+            remain = remain - takeFromBag
+        end
+    end
+
     local list = item_list()
     for i = count(list) - 1, 0, -1 do
         if remain <= 0 then break end
@@ -325,7 +312,9 @@ local function deduct_currency(amount, target)
             local take = math.min(remain, stack_count(item))
             local ok, n = remove_stack(item, take)
             if not ok then
-                if removed > 0 then drop_item("Item_LingStone", removed, target) end
+                if removedFromBag > 0 then ring_add("Item_LingStone", removedFromBag) end
+                local removedFromMap = removed - removedFromBag
+                if removedFromMap > 0 then drop_item("Item_LingStone", removedFromMap, target) end
                 return false, "REMOVE_FAILED", removed
             end
             removed = removed + n
@@ -333,10 +322,26 @@ local function deduct_currency(amount, target)
         end
     end
     if remain > 0 then
-        if removed > 0 then drop_item("Item_LingStone", removed, target) end
+        if removedFromBag > 0 then ring_add("Item_LingStone", removedFromBag) end
+        local removedFromMap = removed - removedFromBag
+        if removedFromMap > 0 then drop_item("Item_LingStone", removedFromMap, target) end
         return false, "REMOVE_INCOMPLETE", removed
     end
-    return true, nil, removed
+    return true, nil, removed, {bag=removedFromBag, map=removed - removedFromBag}
+end
+
+local function refund_currency(payment, total, target)
+    total = math.max(0, math.floor(tonumber(total) or 0))
+    local bagAmount = 0
+    if type(payment) == "table" then
+        bagAmount = math.max(0, math.min(total, math.floor(tonumber(payment.bag) or 0)))
+    end
+    if bagAmount > 0 then
+        local restored = ring_add ~= nil and ring_add("Item_LingStone", bagAmount)
+        if not restored then drop_item("Item_LingStone", bagAmount, target) end
+    end
+    local mapAmount = total - bagAmount
+    if mapAmount > 0 then drop_item("Item_LingStone", mapAmount, target) end
 end
 
 local function rate_price(def)
@@ -411,7 +416,7 @@ local function space_ring()
     return map, ring
 end
 
-local function ring_count(id)
+ring_count = function(id)
     local _, ring = space_ring()
     if ring == nil then return 0 end
     local value = 0
@@ -419,7 +424,7 @@ local function ring_count(id)
     return math.max(0, math.floor(value))
 end
 
-local function ring_add(id, amount)
+ring_add = function(id, amount)
     id = tostring(id or "")
     amount = math.floor(tonumber(amount) or 0)
     if id == "" or amount == 0 then return false, "INVALID_AMOUNT" end
@@ -710,11 +715,11 @@ function XaouShop_Buy(index, quantity, target)
     if quantity > 10 then quantity = 10 end
     if quantity > (tonumber(row.stock) or 0) then return false, "OUT_OF_STOCK" end
     local total = quantity * math.max(1, tonumber(row.price) or 1)
-    local paid, payError = deduct_currency(total, target)
+    local paid, payError, _, payment = deduct_currency(total, target)
     if not paid then return false, payError end
     local spawned, spawnError = drop_item(row.id, quantity, target)
     if not spawned then
-        drop_item("Item_LingStone", total, target)
+        refund_currency(payment, total, target)
         return false, "SPAWN_FAILED: " .. tostring(spawnError)
     end
     row.stock = math.max(0, (tonumber(row.stock) or 0) - quantity)
@@ -781,15 +786,10 @@ function XaouShop_BuySpecial(id, quantity, target)
     local selectedKind = tostring(selected.kind or "item")
     local isBuilding = selectedKind == "building"
     local isGong = selectedKind == "gong"
-    local isMindLevel = selectedKind == "mind_level"
-    if (isBuilding or isGong or isMindLevel) and quantity ~= 1 then return false, "ONE_AT_A_TIME" end
+    if (isBuilding or isGong) and quantity ~= 1 then return false, "ONE_AT_A_TIME" end
     local grantId = selected.grantId and tostring(selected.grantId) or id
-    if not isBuilding and not isGong and not isMindLevel and XaouShop_GetDef(grantId) == nil then return false, "ITEM_NOT_FOUND" end
+    if not isBuilding and not isGong and XaouShop_GetDef(grantId) == nil then return false, "ITEM_NOT_FOUND" end
     if isGong and XaouShop_IsGongUnlocked(selected.gongId or id) then return false, "ALREADY_UNLOCKED" end
-    if isMindLevel then
-        local god = get_god_practice_data(target)
-        if god == nil then return false, "NOT_DIVINE_PRACTICE" end
-    end
 
     local bought = ensure_special_bought()
     local limit = math.max(1, math.floor(tonumber(selected.limit) or 1))
@@ -798,27 +798,20 @@ function XaouShop_BuySpecial(id, quantity, target)
 
     local price = math.max(1, math.floor(tonumber(selected.price) or 1))
     local total = price * quantity
-    local paid, payError = deduct_currency(total, target)
+    local paid, payError, _, payment = deduct_currency(total, target)
     if not paid then return false, payError end
     local gongInstallDetail = nil
     if isGong then
         local installed, installDetail = XaouShop_UnlockGong(selected.gongId or id)
         if not installed then
-            drop_item("Item_LingStone", total, target)
+            refund_currency(payment, total, target)
             return false, installDetail or "UNLOCK_GONG_FAILED"
         end
         gongInstallDetail = installDetail
-    elseif isMindLevel then
-        local applied, applyDetail = XaouShop_ApplyMindStateLevel(target, selected.levels or 1)
-        if not applied then
-            drop_item("Item_LingStone", total, target)
-            return false, applyDetail or "MIND_LEVEL_FAILED"
-        end
-        gongInstallDetail = applyDetail
     elseif not isBuilding then
         local spawned, spawnError = drop_item(grantId, quantity, target)
         if not spawned then
-            drop_item("Item_LingStone", total, target)
+            refund_currency(payment, total, target)
             return false, "SPAWN_FAILED: " .. tostring(spawnError)
         end
     end
