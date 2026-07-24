@@ -158,6 +158,7 @@ function XaouDailyShop:OnEnter()
         if g_emEvent.TaskUpdate ~= nil then
             event:RegisterEvent(g_emEvent.TaskUpdate, function()
                 if XaouQuest_Refresh then pcall(XaouQuest_Refresh) end
+                if XaouQuest_HudRefresh then pcall(XaouQuest_HudRefresh, true) end
             end, "Xaou009DailyShop_NativeQuestUpdate")
         end
     end
@@ -184,6 +185,7 @@ function XaouDailyShop:OnStep(dt)
     end
     if XaouUpdateChecker_Step then pcall(XaouUpdateChecker_Step) end
     if XaouQuest_Step then pcall(XaouQuest_Step) end
+    if XaouQuest_HudStep then pcall(XaouQuest_HudStep, 1) end
 end
 
 function XaouDailyShop:OnSave()
@@ -199,6 +201,7 @@ function XaouDailyShop:OnAfterLoad()
     if XaouShop_EnsureDaily then pcall(XaouShop_EnsureDaily) end
     self:EnsureSmartBackpackOpen(nil)
     if XaouBodhi_RefreshAutoSkills then pcall(XaouBodhi_RefreshAutoSkills) end
+    if XaouQuest_HudRefresh then pcall(XaouQuest_HudRefresh, true) end
 end
 
 function XaouDailyShop:OnLeave()
@@ -211,6 +214,7 @@ function XaouDailyShop:OnLeave()
     if XaouDailyLogin_Close then pcall(XaouDailyLogin_Close) end
     if XaouUpdateChecker_Stop then pcall(XaouUpdateChecker_Stop) end
     if XaouQuest_CloseWindow then pcall(XaouQuest_CloseWindow) end
+    if XaouQuest_HudClose then pcall(XaouQuest_HudClose) end
     if event ~= nil then
         pcall(function() event:UnRegisterEvent(g_emEvent.SelectItem, "Xaou009DailyShop_QuestSelectItem") end)
         pcall(function() event:UnRegisterEvent(g_emEvent.BuildingFinished, "Xaou009DailyShop_QuestBuilding") end)

@@ -244,7 +244,7 @@ local function refresh()
     if view == nil then return end
     local data = state()
     local _, level, member = membership_state()
-    set_text(child(view, "title"), "Xaou 009 เช็กอินรายวัน")
+    set_text(child(view, "title"), "เช็กอินรายวัน")
     set_text(child(view, "subtitle"), "รางวัล 7 วันตามระดับสมาชิก ของหายากมีจำนวนลดลงและออกในวันท้าย ๆ")
     set_text(child(view, "btnClose"), "×")
     set_text(child(view, "cycleText"), "วันที่ " .. tostring(math.max(1, math.min(7, data.index))) .. "/7 • " .. tostring(data.todayLabel))

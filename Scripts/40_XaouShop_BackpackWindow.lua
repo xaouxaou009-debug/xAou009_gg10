@@ -173,7 +173,7 @@ local function refresh(view)
     if XBAG_Page < 1 then XBAG_Page = 1 end
     if XBAG_Selected < 1 or XBAG_Selected > #XBAG_Rows then XBAG_Selected = #XBAG_Rows > 0 and 1 or 0 end
 
-    set_text(child(view, "title"), "กระเป๋า Xaou 009")
+    set_text(child(view, "title"), "กระเป๋า")
     set_text(child(view, "subtitle"), "จัดเก็บและนำสิ่งของออกใกล้ NPC ที่เลือก")
     set_text(child(view, "btnClose"), "×")
     set_text(child(view, "btnCategory"), (is_english() and "Category: " or "หมวด: ") .. category_label(XBAG_Category))

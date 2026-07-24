@@ -5,6 +5,8 @@ local XQ_Filter, XQ_Selected = "all", nil
 local XQ_Visible, XQ_Page = {}, 1
 local XQ_PerPage, XQ_LastDay = 4, nil
 local XQ_Errors = {}
+local XQ_HudTitle, XQ_HudObjective, XQ_HudClose = nil, nil, nil
+local XQ_HudTimer, XQ_HudSignature = 0, nil
 
 local QUESTS = {
     {id="xq_meet", kind="npc", target=5, rewardId="Item_LingStone", rewardCount=20,
@@ -146,6 +148,27 @@ local function collect_rows()
     return rows
 end
 
+function XaouQuest_GetAllRows()
+    return collect_rows()
+end
+
+local function tracked_id()
+    return quest_state().trackedId
+end
+
+local function set_tracked_id(id)
+    quest_state().trackedId = id
+    XQ_HudSignature = nil
+end
+
+local function find_row(id)
+    if id == nil then return nil end
+    for _, row in ipairs(collect_rows()) do
+        if row.id == id then return row end
+    end
+    return nil
+end
+
 local function status_label(row)
     if row.status == "available" then return tr("รับได้", "Available") end
     if row.status == "active" then return tr("กำลังทำ", "Active") end
@@ -185,14 +208,29 @@ local function render_detail()
         child(XQ_View, "progressFill").width = target > 0 and math.floor(532 * math.min(target, progress) / target) or 0
     end)
     local button = child(XQ_View, "btnAction")
-    set_visible(button, row.native ~= true and row.status ~= "active" and row.status ~= "completed")
-    if row.status == "available" then set_text(button, tr("รับภารกิจ", "Accept"))
-    elseif row.status == "ready" then set_text(button, tr("รับรางวัล", "Claim")) end
+    set_visible(button, row.status ~= "completed" and row.status ~= "inactive")
+    if row.native == true or row.status == "active" or row.status == "locked" then
+        if tracked_id() == row.id then
+            set_text(button, tr("เลิกติดตาม", "Untrack"))
+        else
+            set_text(button, tr("ติดตามเควส", "Track quest"))
+        end
+    elseif row.status == "available" then
+        set_text(button, tr("รับภารกิจ", "Accept"))
+    elseif row.status == "ready" then
+        set_text(button, tr("รับรางวัล", "Claim"))
+    end
 end
 
 local function custom_action()
     local row = selected_row()
-    if row == nil or row.native == true then return end
+    if row == nil then return end
+    if row.native == true or row.status == "active" or row.status == "locked" then
+        if tracked_id() == row.id then set_tracked_id(nil) else set_tracked_id(row.id) end
+        XaouQuest_Refresh()
+        if XaouQuest_HudRefresh then pcall(XaouQuest_HudRefresh, true) end
+        return
+    end
     local quest = custom_definition(row.id)
     if quest == nil then return end
     local data = custom_state(row.id)
@@ -264,6 +302,7 @@ function XaouQuest_CloseWindow()
     pcall(function() XQ_View:RemoveFromParent() end)
     pcall(function() XQ_View:Dispose() end)
     XQ_View, XQ_Target = nil, nil
+    if XaouQuest_HudRefresh then pcall(XaouQuest_HudRefresh, true) end
 end
 
 function XaouQuest_OpenWindow(npc)
@@ -277,6 +316,7 @@ function XaouQuest_OpenWindow(npc)
     local ok, err = pcall(function() view = pkg.CreateObject("XaouShop", "QuestWindow") end)
     if not ok or view == nil then return false, tostring(err or "CreateObject returned nil") end
     XQ_View = view
+    if XaouQuest_HudClose then pcall(XaouQuest_HudClose) end
     root:AddChild(view)
     view.x, view.y = (root.width - view.width) / 2, (root.height - view.height) / 2
     pcall(function() root:SetChildIndex(view, root.numChildren - 1) end)
@@ -303,4 +343,101 @@ function XaouQuest_OpenWindow(npc)
     end)
     XaouQuest_Refresh()
     return true
+end
+
+local function dispose_hud_object(obj)
+    if obj == nil then return end
+    pcall(function() obj:RemoveFromParent() end)
+    pcall(function() obj:Dispose() end)
+end
+
+function XaouQuest_HudClose()
+    dispose_hud_object(XQ_HudTitle)
+    dispose_hud_object(XQ_HudObjective)
+    dispose_hud_object(XQ_HudClose)
+    XQ_HudTitle, XQ_HudObjective, XQ_HudClose = nil, nil, nil
+    XQ_HudSignature = nil
+end
+
+local function create_hud_button(pkg, width, height)
+    local button = nil
+    pcall(function() button = pkg.CreateObject("XaouShop", "ShopButton") end)
+    if button ~= nil then pcall(function() button:SetSize(width, height, false) end) end
+    return button
+end
+
+local function open_from_hud()
+    if XaouQuest_OpenWindow then pcall(XaouQuest_OpenWindow, XQ_Target) end
+end
+
+function XaouQuest_HudRefresh(force)
+    if XQ_View ~= nil then
+        XaouQuest_HudClose()
+        return
+    end
+    local id = tracked_id()
+    if id == nil then
+        XaouQuest_HudClose()
+        return
+    end
+    local row = find_row(id)
+    if row == nil then
+        set_tracked_id(nil)
+        XaouQuest_HudClose()
+        return
+    end
+    if row.status == "completed" or row.status == "inactive" then
+        set_tracked_id(nil)
+        XaouQuest_HudClose()
+        return
+    end
+    local signature = tostring(row.id) .. "|" .. tostring(row.status) .. "|"
+        .. tostring(row.title) .. "|" .. tostring(row.objective)
+    if force ~= true and signature == XQ_HudSignature
+        and XQ_HudTitle ~= nil and XQ_HudObjective ~= nil then return end
+
+    XaouQuest_HudClose()
+    local pkg = UIPackage or (CS.FairyGUI and CS.FairyGUI.UIPackage)
+    local root = (GRoot and GRoot.inst) or (CS.FairyGUI and CS.FairyGUI.GRoot.inst)
+    if pkg == nil or root == nil then return end
+    pcall(function() pkg.AddPackage("UI/XaouShop") end)
+    local title = create_hud_button(pkg, 430, 44)
+    local objective = create_hud_button(pkg, 430, 42)
+    local close = create_hud_button(pkg, 46, 44)
+    if title == nil or objective == nil or close == nil then
+        dispose_hud_object(title)
+        dispose_hud_object(objective)
+        dispose_hud_object(close)
+        return
+    end
+    XQ_HudTitle, XQ_HudObjective, XQ_HudClose = title, objective, close
+    set_text(title, tr("ติดตาม: ", "Tracking: ") .. tostring(row.title))
+    set_text(objective, tostring(row.objective or "-"))
+    set_text(close, "X")
+    local x, y = 18, 145
+    pcall(function()
+        root:AddChild(title)
+        root:AddChild(objective)
+        root:AddChild(close)
+        title.x, title.y = x, y
+        objective.x, objective.y = x, y + 46
+        close.x, close.y = x + 434, y
+        title.sortingOrder = 18000
+        objective.sortingOrder = 18000
+        close.sortingOrder = 18001
+    end)
+    bind(title, open_from_hud)
+    bind(objective, open_from_hud)
+    bind(close, function()
+        set_tracked_id(nil)
+        XaouQuest_HudClose()
+    end)
+    XQ_HudSignature = signature
+end
+
+function XaouQuest_HudStep(dt)
+    XQ_HudTimer = XQ_HudTimer + (tonumber(dt) or 0)
+    if XQ_HudTimer < 2 then return end
+    XQ_HudTimer = 0
+    XaouQuest_HudRefresh(false)
 end
